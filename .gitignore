@@ -1,0 +1,10 @@
+# Ignore lecture PDFs (copyright)
+slides/
+*.pdf
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

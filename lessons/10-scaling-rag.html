@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 10 — Inference-Time Scaling &amp; RAG</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="09-prompt-engineering.html">← Prev</a>
+  <a href="11-agents-peft.html">Next: Agents &amp; PEFT →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 10 · HIGH priority</span>
+  <h1>Inference-Time Scaling &amp; Retrieval-Augmented Generation</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 9 (CoT, self-consistency).</li><li>Lesson 7 (sampling).</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Explain Best-of-N, MCTS-style search, and process reward models.</li>
+      <li>Describe the o1-style "thinking" paradigm.</li>
+      <li>List the 5 stages of a RAG pipeline.</li>
+      <li>Compare dense, sparse, and hybrid retrieval.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts — Inference-Time Scaling</h2>
+
+  <h3>Idea</h3>
+  <p>Instead of (only) scaling training, spend more <em>inference</em> compute per question. Small models with lots of "thinking" can beat big models that answer instantly.</p>
+
+  <h3>Best-of-N (BoN)</h3>
+  <p>Generate N candidate answers, score each with a verifier (or reward model), pick the best. Strong, simple baseline.</p>
+
+  <h3>Process reward models (PRM) vs outcome reward models (ORM)</h3>
+  <ul>
+    <li><strong>ORM:</strong> scores only the final answer (e.g., is it correct?). Cheap labels but coarse signal.</li>
+    <li><strong>PRM:</strong> scores each <em>step</em> of the reasoning chain. Enables search algorithms to prune bad partial paths.</li>
+  </ul>
+
+  <h3>Tree / MCTS-style search</h3>
+  <p>Treat reasoning as a tree of partial chains. Expand promising nodes (via PRM scores), backtrack from bad ones. Monte-Carlo Tree Search adapts AlphaGo-style search to language.</p>
+
+  <h3>o1-style reasoning</h3>
+  <p>OpenAI o1 / DeepSeek-R1 are trained with RL on reasoning traces, so the model itself learns to produce long internal chains-of-thought before answering. At inference, you pay for many "thinking tokens", but accuracy on hard reasoning tasks jumps dramatically.</p>
+
+  <h2 style="margin-top:24px">Concepts — RAG</h2>
+
+  <h3>Why RAG?</h3>
+  <p>LLMs have fixed knowledge cutoffs and limited context. <strong>Retrieval-Augmented Generation</strong> grounds answers in fresh external documents → reduces hallucination, enables private data, no retraining needed.</p>
+
+  <h3>The 5-stage pipeline</h3>
+  <ol>
+    <li><strong>Chunk:</strong> split docs into ~200–800 token chunks (often overlapping).</li>
+    <li><strong>Embed:</strong> encode each chunk to a vector with an embedding model.</li>
+    <li><strong>Index:</strong> store vectors in an ANN index (FAISS, HNSW) in a vector DB.</li>
+    <li><strong>Retrieve:</strong> embed the query, fetch top-k nearest chunks; optionally <strong>rerank</strong> with a cross-encoder for higher quality.</li>
+    <li><strong>Generate:</strong> stuff retrieved chunks into the prompt and let the LLM answer with citations.</li>
+  </ol>
+
+  <h3>Dense vs sparse vs hybrid retrieval</h3>
+  <ul>
+    <li><strong>Sparse (BM25):</strong> classic keyword TF-IDF style. Great when exact terms matter.</li>
+    <li><strong>Dense (embeddings):</strong> captures semantic meaning even with different words.</li>
+    <li><strong>Hybrid:</strong> combine both (e.g., reciprocal-rank fusion). Usually best in practice.</li>
+  </ul>
+
+  <h3>Reranking</h3>
+  <p>First-stage retrieval = fast and approximate. A cross-encoder reranker takes the top-100 candidates and re-scores each (query, chunk) pair with full attention — slower but much more precise. Keep the top-5 to feed the LLM.</p>
+
+  <div class="example"><strong>Real-world:</strong> Perplexity, You.com, and most "chat with your PDF" tools use BM25+dense hybrid retrieval + reranker + LLM. Modern RAG systems also add query rewriting (the LLM expands the query) and self-RAG (the LLM decides if/when to retrieve).</div>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>Why is a process reward model more useful than an outcome reward model for search?</summary>
+    <p>Search needs a signal at each partial step to know which branch to expand. ORMs only score completed answers, giving no guidance during the search.</p>
+  </details>
+  <details class="socratic"><summary>You have a 7B model + lots of inference budget vs a 70B model with no extra budget. When does the small model win?</summary>
+    <p>On problems where verification is easier than generation (math with checkable steps, code with tests), Best-of-N or search lets the small model match or beat the bigger one by sampling many tries and picking the best.</p>
+  </details>
+  <details class="socratic"><summary>Why does RAG reduce hallucination but not eliminate it?</summary>
+    <p>RAG provides relevant evidence in context, but the LLM can still misread it, blend it with prior beliefs, or copy false retrievals. Hallucination drops sharply but doesn't vanish.</p>
+  </details>
+  <details class="socratic"><summary>Why is a cross-encoder reranker slower than dense retrieval but more accurate?</summary>
+    <p>Dense retrieval encodes query and doc independently then dots the vectors — cheap. A cross-encoder concatenates query+doc and runs full attention across them — much more expressive but O(N) forward passes per query, so only viable on a small candidate set.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> Generating N answers and picking the best by a verifier is called <input data-answer="Best-of-N|Best of N|BoN|bon|best of n">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>3-letter acronym.</div>
+    <div class="solution" hidden><strong>Best-of-N (BoN)</strong>. Simple, strong baseline for inference-time scaling.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> A reward model that scores each reasoning step (not just the final answer) is a <input data-answer="PRM|process reward model"> (acronym).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>P for process.</div>
+    <div class="solution" hidden><strong>PRM</strong> (Process Reward Model). Opposite of ORM.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> Search method named after a board-game algorithm, used for branching reasoning trees: <input data-answer="MCTS|Monte Carlo Tree Search|Monte-Carlo Tree Search">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Famous from AlphaGo.</div>
+    <div class="solution" hidden><strong>MCTS</strong> (Monte-Carlo Tree Search).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> The model paradigm trained via RL to produce long internal reasoning before answering is called <input data-answer="o1|o1-style|o1 style">-style (after the OpenAI model).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>OpenAI's reasoning model name.</div>
+    <div class="solution" hidden><strong>o1</strong>-style (e.g., o1, DeepSeek-R1, Qwen-QwQ).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> The 5 RAG stages in order: chunk → embed → <input data-answer="index"> → retrieve → generate.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Build a searchable structure (e.g. HNSW).</div>
+    <div class="solution" hidden><strong>Index</strong>. Vectors go into FAISS/HNSW/etc.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> The classic keyword-based sparse retrieval algorithm is <input data-answer="BM25|bm25">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Best Matching, version 25.</div>
+    <div class="solution" hidden><strong>BM25</strong>. Often combined with dense embeddings in hybrid retrieval.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> A model that re-scores (query, chunk) pairs jointly with full attention is called a <input data-answer="cross-encoder|cross encoder"> reranker.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Contrast with "bi-encoder" (independent encoding).</div>
+    <div class="solution" hidden><strong>Cross-encoder</strong> reranker. Slower but more accurate than the bi-encoder used for first-stage retrieval.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q8.</span> Combining BM25 and dense embedding scores (e.g., via reciprocal rank fusion) is called <input data-answer="hybrid"> retrieval.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>"Mixed" of sparse + dense.</div>
+    <div class="solution" hidden><strong>Hybrid</strong> retrieval. Usually beats either alone.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>Inference-time scaling: BoN, self-consistency, MCTS, PRM-guided search, o1-style RL-trained reasoning.</li>
+    <li>RAG = chunk → embed → index → retrieve → generate (often with reranking).</li>
+    <li>Hybrid (BM25 + dense) + cross-encoder reranker is the modern default.</li>
+    <li>RAG dramatically reduces but does not eliminate hallucination.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="09-prompt-engineering.html">← Prev</a>
+  <a href="11-agents-peft.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

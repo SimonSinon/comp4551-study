@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 3 — Transformer &amp; LLM Pretraining</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="02-sgd-autodiff.html">← Prev</a>
+  <a href="04-gpu-nccl.html">Next: GPU &amp; NCCL →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 3 · HIGH priority</span>
+  <h1>Transformer Architecture &amp; LLM Pretraining</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lessons 1–2 (loss, backprop, parameters).</li><li>Matrix multiplication and softmax.</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Draw a decoder-only transformer block from memory with correct tensor shapes.</li>
+      <li>Explain multi-head self-attention and write its formula.</li>
+      <li>Describe BPE tokenisation and the causal LM (CLM) objective.</li>
+      <li>Apply the Chinchilla scaling law to a compute budget.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts</h2>
+
+  <h3>Tokenisation (BPE)</h3>
+  <p>LLMs read integer token IDs, not raw text. <strong>Byte-Pair Encoding</strong> starts from bytes and iteratively merges the most frequent pair into a new token. Result: common words = 1 token, rare words = several sub-word pieces. Vocabulary size is usually 32k–128k.</p>
+
+  <h3>Embeddings + positional encoding</h3>
+  <p>Each token ID is mapped to a vector of dimension <code>d</code> (e.g., 4096) via an embedding table. Self-attention is permutation-invariant, so we inject position. Modern LLMs use <strong>RoPE</strong> (rotary position embeddings) — rotate Q and K vectors by an angle dependent on position, encoding relative position naturally.</p>
+
+  <h3>Self-attention (the heart of transformers)</h3>
+  <p>For each token, ask "which other tokens are relevant?" by computing similarities, then take a weighted sum of their values.</p>
+  <span class="formula">Attention(Q, K, V) = softmax(Q Kᵀ / √d_k) · V</span>
+  <p>Shapes for a batch of B sequences of length N, embedding dim d, h heads, head dim d_h = d/h:</p>
+  <ul>
+    <li>Input: <code>X ∈ ℝ^{B×N×d}</code></li>
+    <li>Q, K, V each: <code>ℝ^{B×h×N×d_h}</code> (after splitting heads)</li>
+    <li>Attention matrix QKᵀ/√d_h: <code>ℝ^{B×h×N×N}</code> ← <strong>this is the O(N²) cost</strong></li>
+    <li>Output: concat heads back to <code>ℝ^{B×N×d}</code></li>
+  </ul>
+  <p>In <strong>causal</strong> (decoder) attention, a mask zeroes positions where j &gt; i so a token can't see the future.</p>
+
+  <h3>The transformer block</h3>
+  <p>Modern (LLaMA-style) decoder block, with pre-LayerNorm and residuals:</p>
+  <span class="formula">x ← x + MHA(LN(x))
+x ← x + FFN(LN(x))
+FFN(x) = W₂ · SiLU(W₁ x)   (often gated: SwiGLU)</span>
+  <p>The FFN typically expands to 4×d (or 8/3·d for gated), then projects back. Stack N such blocks → final LayerNorm → linear "unembedding" → softmax over vocabulary.</p>
+
+  <h3>Causal LM pretraining objective</h3>
+  <p>Given a sequence of tokens, predict the next token at every position. Loss = average cross-entropy over all positions. This is self-supervised — every token is both an input and a label.</p>
+
+  <h3>Chinchilla scaling law</h3>
+  <p>For a fixed compute budget C (in FLOPs), the loss-optimal allocation between model parameters N and training tokens D satisfies <strong>D ≈ 20 × N</strong>. A 70B model wants ~1.4T tokens, not 300B.</p>
+  <p>Approximate training FLOPs: <code>C ≈ 6 · N · D</code> (factor 6 = forward + backward + optimizer).</p>
+
+  <div class="example"><strong>Real-world:</strong> GPT-3 was 175B params on ~300B tokens (under-trained by Chinchilla rules). LLaMA-2 70B trained on 2T tokens, demonstrating Chinchilla-style allocation pays off.</div>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>Why divide by √d_k inside the softmax?</summary>
+    <p>Without it, the dot products grow with d_k, pushing softmax into saturation (tiny gradients). Dividing by √d_k keeps variances ≈ 1, so the softmax stays in a useful range.</p>
+  </details>
+  <details class="socratic"><summary>Why multiple attention heads instead of one big head?</summary>
+    <p>Different heads can learn different relations (syntax, coreference, position) in parallel. Splitting into heads is essentially free since the total dimension is unchanged.</p>
+  </details>
+  <details class="socratic"><summary>Why are residual connections (the "+x") essential?</summary>
+    <p>They give gradients a direct highway back through the network, mitigating vanishing gradients and enabling very deep stacks. They also make each block learn a residual update rather than a full transform.</p>
+  </details>
+  <details class="socratic"><summary>Suppose you have compute for a 30B model. By Chinchilla, how many tokens should you train on?</summary>
+    <p>~600B tokens (20 × 30B).</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> Input <code>X</code> has shape <code>(B, N, d) = (4, 1024, 4096)</code>. With <code>h = 32</code> heads, the per-head dimension <code>d_h</code> = <input data-answer="128"></p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>d_h = d / h.</div>
+    <div class="solution" hidden>4096 / 32 = <strong>128</strong>.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> Attention matrix shape for one head with N=1024 tokens: (N × <input data-answer="1024">), giving O(N²) memory.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Q has N rows; Kᵀ has N columns.</div>
+    <div class="solution" hidden>(1024 × <strong>1024</strong>). This O(N²) blow-up motivates FlashAttention (Lesson 8).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> The factor in the attention denominator <code>1/√d_k</code> exists to prevent softmax <input data-answer="saturation|saturating">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Large dot products → near-one-hot softmax → vanishing gradient.</div>
+    <div class="solution" hidden><strong>Saturation</strong>. Keeps logits at unit-variance scale.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> The pretraining objective for GPT-style LLMs is <input data-answer="causal language modeling|causal language modelling|next-token prediction|next token prediction|CLM"> (predicting the next token).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Two-word phrase, abbreviated CLM.</div>
+    <div class="solution" hidden><strong>Causal Language Modeling (CLM)</strong>, a.k.a. next-token prediction.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> By Chinchilla, for a 13B-parameter model the compute-optimal number of training tokens is approximately <input data-answer="260" data-tolerance="10"> billion.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Tokens ≈ 20 × params.</div>
+    <div class="solution" hidden>20 × 13B = <strong>260B</strong> tokens.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> Approximate training FLOPs for a 7B model on 1T tokens: C ≈ 6 · N · D = <input data-answer="4.2e22|4.2E22|42e21" data-tolerance="2e21"> FLOPs (use scientific notation, e.g. 1.2e22).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>6 × 7×10⁹ × 1×10¹² = ?</div>
+    <div class="solution" hidden>6 × 7e9 × 1e12 = <strong>4.2e22</strong> FLOPs (~42 zetta-FLOPs).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> The modern positional encoding scheme that rotates Q and K vectors is called <input data-answer="RoPE|rotary|rotary position embedding|rotary positional embedding">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Used in LLaMA, Qwen, Mistral, DeepSeek.</div>
+    <div class="solution" hidden><strong>RoPE</strong> (Rotary Position Embeddings). Encodes <em>relative</em> position via rotation.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q8.</span> In a decoder-only model, the <input data-answer="causal|causal mask|attention mask"> mask prevents position i from attending to positions j &gt; i.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>An upper-triangular −∞ mask added before softmax.</div>
+    <div class="solution" hidden><strong>Causal</strong> (or "look-ahead") mask. Sets future-position scores to −∞ → softmax zero.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>Self-attention: softmax(QKᵀ/√d_k)V — O(N²) in sequence length.</li>
+    <li>Decoder block = LN → MHA → +residual → LN → FFN → +residual.</li>
+    <li>Pretrain with next-token CE loss on internet-scale text.</li>
+    <li>Chinchilla: tokens ≈ 20 × params; total compute ≈ 6ND.</li>
+    <li>RoPE is today's standard positional scheme.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="02-sgd-autodiff.html">← Prev</a>
+  <a href="04-gpu-nccl.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

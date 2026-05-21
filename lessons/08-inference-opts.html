@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 8 — Inference Algorithm &amp; System Optimisations</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="07-inference-basics.html">← Prev</a>
+  <a href="09-prompt-engineering.html">Next: Prompt Engineering →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 8 · HIGH priority (exam-heavy)</span>
+  <h1>Inference Algorithm &amp; System Optimisations</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 7 (KV cache, prefill/decode).</li><li>Lesson 4 (memory hierarchy, roofline).</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Explain FlashAttention and online softmax.</li>
+      <li>Describe PagedAttention and how it eliminates fragmentation.</li>
+      <li>Compare static vs continuous (in-flight) batching.</li>
+      <li>Outline speculative decoding and quantisation families.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts</h2>
+
+  <h3>FlashAttention — fuse &amp; tile the O(N²) attention</h3>
+  <p>Naive attention materialises the N×N matrix in HBM, then softmax-reads-writes it again, then multiplies by V. That's HBM-thrashing for no good reason.</p>
+  <p>FlashAttention <strong>tiles</strong> Q, K, V into SRAM-sized blocks and computes attention block-by-block, never writing the full attention matrix to HBM. It uses <strong>online softmax</strong> to combine partial maxes/sums across tiles correctly.</p>
+  <p>Result: same math, ~2–4× faster, drastically less memory, enabling long contexts.</p>
+
+  <h3>PagedAttention — virtual memory for KV cache</h3>
+  <p>Different requests have different lengths and grow at different rates. A contiguous KV cache wastes memory (over-allocation + fragmentation). vLLM's <strong>PagedAttention</strong> stores KV in fixed-size <em>pages</em> (e.g., 16 tokens) referenced via a per-request <em>block table</em> — exactly like OS virtual memory.</p>
+  <p>Benefits: ~0% fragmentation, copy-on-write for shared prompt prefixes (great for beam search / parallel sampling), and seamless preemption.</p>
+
+  <h3>Continuous (in-flight) batching</h3>
+  <p>Static batching: all requests in a batch must finish before the next batch starts → short requests wait for the longest one (head-of-line blocking).</p>
+  <p>Continuous batching: at every decode step, the scheduler can <em>remove</em> finished requests and <em>add</em> new ones. The batch composition changes step-by-step. Throughput improvement: often 5–20× over static batching.</p>
+
+  <h3>Speculative decoding</h3>
+  <p>Use a small fast <em>draft</em> model to propose k future tokens, then verify them with the big <em>target</em> model in a single batched forward pass. Accepted tokens commit; the first rejected one is replaced by the target's sample; the rest are discarded.</p>
+  <p>Speedup ≈ accepted_per_step / 1 forward of target. Works because verification is parallel (1 step instead of k). Variants: Medusa (multi-head draft inside target), EAGLE, lookahead decoding.</p>
+
+  <h3>Quantisation</h3>
+  <p>Reduce numerical precision of weights (and sometimes activations / KV) to shrink memory + speed up HBM loads.</p>
+  <ul>
+    <li><strong>FP16/BF16:</strong> training default.</li>
+    <li><strong>FP8 (E4M3/E5M2):</strong> H100-class hardware; near-lossless for inference, ~2× faster than FP16.</li>
+    <li><strong>INT8 (SmoothQuant):</strong> per-channel scaling to handle outlier activations.</li>
+    <li><strong>INT4 weights (GPTQ, AWQ):</strong> calibrated post-training quantisation; activations stay higher precision. ~4× memory reduction.</li>
+  </ul>
+
+  <h3>Disaggregated prefill / decode</h3>
+  <p>Prefill is compute-bound, decode is memory-bound — opposite resource profiles. Run them on <em>separate</em> GPU pools and ship KV cache between them. Improves both TTFT and per-GPU efficiency.</p>
+
+  <div class="example"><strong>Real-world stack:</strong> vLLM = PagedAttention + continuous batching + speculative decoding + quantisation. SGLang and TensorRT-LLM offer comparable stacks. These are why hosted LLM APIs can serve thousands of users per GPU.</div>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>Why does FlashAttention save memory without changing the math?</summary>
+    <p>It never materialises the full N×N attention matrix in HBM; it computes tiles in SRAM and accumulates a single output, using online softmax to keep numerics correct. The math is identical; the IO pattern is different.</p>
+  </details>
+  <details class="socratic"><summary>Why does PagedAttention enable cheap prompt-prefix sharing?</summary>
+    <p>Shared prefixes can point to the same physical KV pages via different block tables; only divergent suffixes allocate new pages. Saves memory for systems prompts, few-shot prefixes, beam search siblings.</p>
+  </details>
+  <details class="socratic"><summary>When does speculative decoding NOT help?</summary>
+    <p>When the draft model's acceptance rate is low (it disagrees often), or when verification compute saturates the GPU (e.g., very large batches already). Net benefit depends on draft quality and batch size.</p>
+  </details>
+  <details class="socratic"><summary>If INT4 weight quantisation gives 4× memory savings, why isn't it always used?</summary>
+    <p>Some accuracy is lost (especially for instruction-following or math tasks). It also requires dequantisation kernels and may not speed up if your bottleneck isn't HBM bandwidth. Trade off per-deployment.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> FlashAttention avoids writing the full attention matrix to HBM by performing computation in <input data-answer="SRAM|shared memory|on-chip|cache"> using tiling.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>The fast tiny memory close to the SM.</div>
+    <div class="solution" hidden><strong>SRAM</strong> (shared memory). Tiles fit in SRAM; HBM only sees inputs and final output.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> The technique that makes online combination of softmax statistics across tiles numerically stable is called <input data-answer="online softmax">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Tracks running max and running sum across tiles.</div>
+    <div class="solution" hidden><strong>Online softmax</strong>. Maintains a running max m and sum ℓ; renormalises previous partials when m grows.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> The KV cache management technique modelled after OS virtual memory is called <input data-answer="PagedAttention|paged attention">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Introduced by vLLM.</div>
+    <div class="solution" hidden><strong>PagedAttention</strong>. Fixed-size pages + per-request block tables.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> The batching scheme that adds/removes requests every decode step is called <input data-answer="continuous batching|in-flight batching|continuous|inflight batching">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Also called "in-flight batching" by TensorRT-LLM.</div>
+    <div class="solution" hidden><strong>Continuous batching</strong> (= in-flight batching). Eliminates head-of-line blocking.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> In speculative decoding, the small model is the <input data-answer="draft"> model and the large model is the target (verifier).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>It "drafts" the next k tokens.</div>
+    <div class="solution" hidden><strong>Draft</strong> model proposes; target verifies in parallel.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> Per-channel scaling that smooths activation outliers before INT8 quantisation is called <input data-answer="SmoothQuant|smooth quant">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Migrates difficulty from activations to weights.</div>
+    <div class="solution" hidden><strong>SmoothQuant</strong>. Multiplies activations by 1/s and weights by s.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> Two common 4-bit weight-only post-training quantisation methods: <input data-answer="GPTQ|gptq"> and <input data-answer="AWQ|awq">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>3-letter and 3-letter acronyms.</div>
+    <div class="solution" hidden><strong>GPTQ</strong> (Hessian-based) and <strong>AWQ</strong> (activation-aware). Both INT4 weight quantisation.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q8.</span> Running prefill on one GPU pool and decode on another is called <input data-answer="disaggregated|disaggregation|disaggregated prefill|disaggregated serving"> serving.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Each phase has opposite resource profiles, so separate them.</div>
+    <div class="solution" hidden><strong>Disaggregated</strong> prefill/decode serving (e.g., Splitwise, Mooncake, DistServe).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q9.</span> A multi-head variant of speculative decoding that puts draft heads INSIDE the target model is called <input data-answer="Medusa|medusa">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Named after the many-headed Greek monster.</div>
+    <div class="solution" hidden><strong>Medusa</strong> — multiple decoding heads predict tokens at offsets 1, 2, 3, … in parallel.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>FlashAttention: tile + online softmax → no HBM N×N matrix.</li>
+    <li>PagedAttention: virtual-memory KV cache → zero fragmentation, prefix sharing.</li>
+    <li>Continuous batching: per-step dynamic batch → massive throughput gain.</li>
+    <li>Speculative decoding: draft proposes, target verifies in one pass.</li>
+    <li>Quantisation tiers: FP16 → FP8 → INT8 (SmoothQuant) → INT4 (GPTQ/AWQ).</li>
+    <li>Disaggregate prefill (compute) and decode (memory) for efficiency.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="07-inference-basics.html">← Prev</a>
+  <a href="09-prompt-engineering.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

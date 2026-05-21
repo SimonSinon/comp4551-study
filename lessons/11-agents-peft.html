@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 11 — LLM Agents &amp; Parameter-Efficient Fine-Tuning</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="10-scaling-rag.html">← Prev</a>
+  <a href="12-rlhf-eval.html">Next: RLHF &amp; Evaluation →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 11 · HIGH priority</span>
+  <h1>LLM Agents &amp; Parameter-Efficient Fine-Tuning</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 9 (ReAct).</li><li>Lesson 3 (weight matrices, transformer block).</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Describe the agent loop and the role of tools, memory, and planning.</li>
+      <li>Explain function calling and structured outputs.</li>
+      <li>Derive LoRA's parameter count and explain why it works.</li>
+      <li>Compare LoRA, QLoRA, prefix-tuning, and adapters.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts — Agents</h2>
+
+  <h3>The agent loop</h3>
+  <p>An agent is an LLM in a perception–action loop:</p>
+  <span class="formula">while not done:
+    thought  = LLM(history)
+    action   = parse_tool_call(thought)
+    obs      = execute(action)        # tool / API / code
+    history += (thought, action, obs)
+return final_answer</span>
+  <p>Compare to ReAct (Lesson 9) — agents are ReAct + tool execution + memory + (optional) planning.</p>
+
+  <h3>Tool use / function calling</h3>
+  <p>The model is shown a list of tools with JSON schemas; it outputs a structured call (name + arguments). Modern models (GPT-4o, Claude, Qwen, Llama-3) are post-trained for this and emit valid JSON reliably.</p>
+
+  <h3>Memory</h3>
+  <ul>
+    <li><strong>Short-term:</strong> what fits in the current context window.</li>
+    <li><strong>Long-term:</strong> a vector store the agent can query (similar to RAG).</li>
+    <li><strong>Scratchpad:</strong> intermediate reasoning kept in the prompt.</li>
+  </ul>
+
+  <h3>Planning</h3>
+  <p>For complex tasks, an agent may first <em>plan</em> (decompose into sub-tasks) before executing. Common patterns: plan-and-execute, hierarchical agents, multi-agent collaboration.</p>
+
+  <h2 style="margin-top:24px">Concepts — Parameter-Efficient Fine-Tuning (PEFT)</h2>
+
+  <h3>The motivation</h3>
+  <p>Full fine-tuning of a 70B model needs ~280 GB of optimizer states alone. PEFT freezes the base and trains a tiny number of extra parameters → fits on a single GPU, switchable adapters per task.</p>
+
+  <h3>LoRA: low-rank adaptation</h3>
+  <p>For a frozen weight <code>W ∈ ℝ^{d×k}</code>, learn a low-rank update <code>ΔW = B A</code> where <code>B ∈ ℝ^{d×r}</code>, <code>A ∈ ℝ^{r×k}</code>, with rank <code>r ≪ min(d,k)</code> (e.g., r=8 or 16).</p>
+  <span class="formula">y = W x + (α/r) · B A x</span>
+  <p>Trainable params per matrix: <code>r·(d + k)</code> instead of <code>d·k</code>. For d=k=4096, r=16 → 131k params vs 16.8M (~128× smaller). A is init random Gaussian, B init zero (so ΔW starts at 0). After training, ΔW can be <strong>merged</strong> into W for zero inference overhead.</p>
+
+  <h3>QLoRA</h3>
+  <p>Quantise the frozen base to NF4 (4-bit), keep LoRA adapters in BF16. Enables fine-tuning 65B models on a single 48 GB GPU. Tricks: double quantisation, paged optimisers.</p>
+
+  <h3>Other PEFT methods</h3>
+  <ul>
+    <li><strong>Adapters:</strong> insert tiny down-project → nonlinearity → up-project blocks; older, slightly slower at inference.</li>
+    <li><strong>Prefix tuning / P-tuning v2:</strong> learn task-specific KV "soft prompts" prepended to each layer. No weight modification.</li>
+    <li><strong>Prompt tuning:</strong> only learn input-layer soft prompt tokens. Cheapest, weakest.</li>
+  </ul>
+  <p>Modern default: <strong>LoRA on attention Q/K/V/O + MLP projections</strong>, r=8–64.</p>
+
+  <div class="example"><strong>Real-world:</strong> Hugging Face's <code>peft</code> library, Llama-Factory, Axolotl, Unsloth all default to LoRA / QLoRA for fine-tuning custom LLMs on consumer GPUs.</div>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>How does an agent know when to stop?</summary>
+    <p>Either the model emits a "final answer" tool call, or it produces text without a tool call, or a maximum-step budget is reached. The loop is controlled by the orchestration code, not the model itself.</p>
+  </details>
+  <details class="socratic"><summary>Why is B (in LoRA's BA) initialised to zero?</summary>
+    <p>So ΔW = BA = 0 at the start — the fine-tuned model begins identical to the frozen base, ensuring no destructive shift. Training then learns the perturbation.</p>
+  </details>
+  <details class="socratic"><summary>Why does QLoRA give nearly the same quality as LoRA despite 4-bit weights?</summary>
+    <p>The frozen base weights are only read during forward/backward; gradient signal still flows into BF16 LoRA adapters. The 4-bit quantisation noise is amortised across all weights and turns out to be tolerable for instruction tuning.</p>
+  </details>
+  <details class="socratic"><summary>If LoRA matrices can be merged into W, why not always train with LoRA?</summary>
+    <p>LoRA caps the rank of the update → less expressive than full fine-tuning. For drastic distribution shifts (new language, new modality) full fine-tuning often wins; for instruction/style adaptation LoRA is plenty.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> Modern agents typically follow the loop: thought → <input data-answer="action"> → observation → thought → …</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Same ordering as ReAct.</div>
+    <div class="solution" hidden><strong>Action</strong> — typically a tool call.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> The structured-output mechanism by which an LLM invokes external tools is commonly called <input data-answer="function calling|tool calling|tool use|function call"> (two words).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>OpenAI popularised the term.</div>
+    <div class="solution" hidden><strong>Function calling</strong> (also tool calling / tool use).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> LoRA factorises the update as ΔW = B A. For W of shape 4096 × 4096 with rank r = 8, total LoRA trainable params = r·(d+k) = <input data-answer="65536"></p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>8 × (4096 + 4096).</div>
+    <div class="solution" hidden>8 × 8192 = <strong>65,536</strong> params vs 4096² = 16,777,216 full. ~256× smaller.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> In LoRA, matrix B is initialised to <input data-answer="0|zero|zeros"> so that ΔW = 0 at the start.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>So output matches base model on step 0.</div>
+    <div class="solution" hidden><strong>Zero</strong>. A is random Gaussian; B is zero.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> QLoRA quantises the frozen base model to <input data-answer="4|4-bit|four"> bits while keeping LoRA adapters in BF16.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>NF4 = 4-bit NormalFloat.</div>
+    <div class="solution" hidden><strong>4</strong>-bit (NF4 format).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> After training, LoRA's ΔW can be added into W so inference cost is the same as the base model — this is called <input data-answer="merging|merge|weight merging">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Fuse adapter back into weights.</div>
+    <div class="solution" hidden><strong>Merging</strong> the LoRA into the base weights.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> A PEFT method that learns task-specific "soft prompt" key/value vectors prepended at every layer is called <input data-answer="prefix tuning|prefix-tuning"> (two words).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Adds learned KV at the start of each attention.</div>
+    <div class="solution" hidden><strong>Prefix tuning</strong>. P-tuning v2 is a closely related variant.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q8.</span> An agent uses a vector database to store conversation history beyond the context window — this is called <input data-answer="long-term memory|long term memory|long-term">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Contrast with "short-term" (context window).</div>
+    <div class="solution" hidden><strong>Long-term</strong> memory. Retrieved on demand, similar to RAG.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>Agent = LLM + tools + memory in a thought/action/observation loop.</li>
+    <li>Function calling = structured tool invocation via JSON schemas.</li>
+    <li>LoRA: ΔW = BA, rank r ≪ d, trainable params ≈ r(d+k); B init = 0.</li>
+    <li>QLoRA: 4-bit base + BF16 LoRA → 65B fine-tuning on one GPU.</li>
+    <li>Merge LoRA into W for zero-overhead inference.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="10-scaling-rag.html">← Prev</a>
+  <a href="12-rlhf-eval.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

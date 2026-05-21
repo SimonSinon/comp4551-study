@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 7 — Generative Inference Basics</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="06-moe-sequence.html">← Prev</a>
+  <a href="08-inference-opts.html">Next: Inference Optimisations →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 7 · HIGH priority</span>
+  <h1>Generative Inference Basics</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 3 (transformer, attention).</li><li>Lesson 4 (memory vs compute bound).</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Distinguish prefill from decode and explain why decode is memory-bound.</li>
+      <li>Compute KV-cache memory for a given model and context length.</li>
+      <li>Describe greedy, top-k, top-p, and temperature sampling.</li>
+      <li>Reason about latency vs throughput trade-offs.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts</h2>
+
+  <h3>The two phases: prefill and decode</h3>
+  <ul>
+    <li><strong>Prefill:</strong> process the full input prompt of length P in one batched forward pass. Lots of tokens → high arithmetic intensity → <em>compute-bound</em>. Produces the first output token + the initial KV cache.</li>
+    <li><strong>Decode:</strong> generate output tokens one at a time. Each step processes just 1 new token but must read the entire weight matrices and the growing KV cache from HBM → <em>memory-bound</em>. This dominates wall time for long generations.</li>
+  </ul>
+
+  <h3>KV cache: why and what</h3>
+  <p>Naively, generating token T+1 would re-compute attention over all T previous tokens (and recompute their K/V). Instead, we <strong>cache K and V</strong> for every past token at every layer. At step T+1, only one new (Q, K, V) triple is computed; new K, V are appended; attention runs against the cache.</p>
+  <p>KV cache memory size for one request:</p>
+  <span class="formula">M_KV = 2 · n_layers · n_kv_heads · d_head · seq_len · bytes_per_elt</span>
+  <p>The factor 2 = K and V. Multiply by batch size for concurrent requests.</p>
+
+  <div class="example"><strong>Real-world:</strong> LLaMA-2-7B has 32 layers, 32 KV heads, d_head=128. At 4096 ctx, FP16 (2 bytes): 2·32·32·128·4096·2 = ~2.1 GB per request. At batch=32, that's 67 GB — bigger than the 14 GB of weights!</div>
+
+  <h3>Sampling strategies</h3>
+  <ul>
+    <li><strong>Greedy:</strong> always pick argmax token. Deterministic, often dull/repetitive.</li>
+    <li><strong>Temperature T:</strong> scale logits by 1/T before softmax. T&lt;1 sharpens (more deterministic), T&gt;1 flattens (more diverse). T=0 ≡ greedy.</li>
+    <li><strong>Top-k:</strong> keep only the k highest-probability tokens, renormalise, sample.</li>
+    <li><strong>Top-p (nucleus):</strong> keep the smallest set of tokens whose cumulative prob ≥ p (e.g., 0.9), renormalise, sample. Adapts the cut-off per step.</li>
+  </ul>
+
+  <h3>Latency vs throughput</h3>
+  <ul>
+    <li><strong>Latency:</strong> wall time per request (TTFT = time to first token; TPOT = time per output token).</li>
+    <li><strong>Throughput:</strong> tokens generated per second across all concurrent users.</li>
+  </ul>
+  <p>Batching multiple requests improves throughput (amortises weight loads) but increases each request's TTFT. The whole inference-systems field is about navigating this trade-off (next lesson).</p>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>Why is decode memory-bound while prefill is compute-bound?</summary>
+    <p>Prefill processes P tokens at once → big matmuls with high arithmetic intensity. Decode processes 1 token → matmuls degenerate to vector × matrix; you must load entire weight matrices to multiply against a single token vector → low AI → bandwidth-limited.</p>
+  </details>
+  <details class="socratic"><summary>Why cache K and V but not Q?</summary>
+    <p>Past Q values are never reused — each decode step only needs the new Q dotted against all past K. K and V, however, must be re-read every step → caching them avoids recomputation.</p>
+  </details>
+  <details class="socratic"><summary>You batch 64 users. What grows and what stays the same?</summary>
+    <p>Weight loading per step stays the same (one copy of weights). KV cache memory grows 64×. Per-step compute grows 64× but is still vector-ish until batch saturates compute — so throughput rises sharply while latency rises only mildly. This is why batching is the #1 throughput lever.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> The phase of inference that processes the entire prompt in parallel is <input data-answer="prefill">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Opposite of token-by-token decode.</div>
+    <div class="solution" hidden><strong>Prefill</strong>. High AI → compute-bound. Produces the initial KV cache and the first token.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> Decoding is bottlenecked by HBM <input data-answer="bandwidth|memory bandwidth"> rather than FLOPs.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>It's why everyone obsesses over KV-cache size.</div>
+    <div class="solution" hidden>HBM <strong>bandwidth</strong>. Each step reads ~all weights to produce one token.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> KV cache size for a model with n_layers=32, n_kv_heads=8, d_head=128, seq_len=2048, FP16. Per request size = <input data-answer="0.268|0.27|0.25" data-tolerance="0.03"> GB. (Round to 2 dp.)</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>2 (K&amp;V) · 32 · 8 · 128 · 2048 · 2 bytes, divide by 1024³.</div>
+    <div class="solution" hidden>2·32·8·128·2048·2 = 268,435,456 bytes ≈ <strong>0.25 GiB</strong> (or 0.27 GB decimal). Notice how grouped-query attention (small n_kv_heads) is a HUGE win.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> Sampling that always picks the highest-probability token: <input data-answer="greedy">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Equivalent to argmax / temperature = 0.</div>
+    <div class="solution" hidden><strong>Greedy</strong> decoding. Deterministic but prone to repetition.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> Nucleus sampling is also known as top-<input data-answer="p">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Smallest set whose cumulative probability ≥ p.</div>
+    <div class="solution" hidden>top-<strong>p</strong> (a.k.a. nucleus) sampling.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> Increasing temperature above 1 makes outputs more <input data-answer="diverse|random|varied">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Flattens the softmax distribution.</div>
+    <div class="solution" hidden>More <strong>diverse</strong> (random). Lower T sharpens; T→0 = greedy.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> Metric "time to first token" abbreviated as <input data-answer="TTFT|ttft">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>4 letters.</div>
+    <div class="solution" hidden><strong>TTFT</strong>. Dominated by prefill time. TPOT (time per output token) is dominated by decode.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q8.</span> Increasing the batch size primarily improves <input data-answer="throughput"> at the cost of per-request latency.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Amortises weight loads across many users.</div>
+    <div class="solution" hidden><strong>Throughput</strong>. The whole serving-system field is about getting throughput up without ruining latency.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>Prefill = compute-bound (parallel over P tokens). Decode = memory-bound (1 token, full weight read).</li>
+    <li>KV cache: M = 2·L·H_kv·d_h·N·bytes per request — often bigger than the weights.</li>
+    <li>Sampling: greedy → top-k → top-p → temperature; mix and match.</li>
+    <li>Batching trades latency for throughput; the systems lessons fix the trade-off.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="06-moe-sequence.html">← Prev</a>
+  <a href="08-inference-opts.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

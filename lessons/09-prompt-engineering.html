@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 9 — Prompt Engineering</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="08-inference-opts.html">← Prev</a>
+  <a href="10-scaling-rag.html">Next: Scaling &amp; RAG →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 9 · Medium priority</span>
+  <h1>Prompt Engineering</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 3 (LLMs predict next token).</li><li>Lesson 7 (sampling).</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Distinguish zero-shot, few-shot, chain-of-thought, and self-consistency.</li>
+      <li>Apply ReAct to combine reasoning and tool calls.</li>
+      <li>Recognise common prompt failure modes.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts</h2>
+
+  <h3>In-context learning (ICL)</h3>
+  <p>LLMs can learn tasks <em>from the prompt</em>, without weight updates. The prompt format itself is the program.</p>
+
+  <h3>Zero-shot vs few-shot</h3>
+  <ul>
+    <li><strong>Zero-shot:</strong> instruction only. <em>"Translate to French: 'Hello world'"</em></li>
+    <li><strong>Few-shot:</strong> include 2–8 worked examples before the actual query. Often dramatically better, especially for structured outputs.</li>
+  </ul>
+
+  <h3>Chain-of-Thought (CoT)</h3>
+  <p>Append "Let's think step by step" or include example solutions that show intermediate reasoning. Forces the model to expand its computation across more tokens before answering. Huge gains on math/logic tasks.</p>
+
+  <h3>Self-consistency</h3>
+  <p>Sample <em>multiple</em> CoT completions with temperature &gt; 0, then majority-vote the final answer. Trades compute for accuracy. Works because the right answer often appears via multiple reasoning paths but wrong answers are uncorrelated.</p>
+
+  <h3>ReAct: Reason + Act</h3>
+  <p>Interleave reasoning ("Thought") and tool calls ("Action") in a loop:
+  <em>Thought → Action → Observation → Thought → …</em>. Backbone of modern agents (Lesson 11).</p>
+
+  <h3>Common failure modes</h3>
+  <ul>
+    <li><strong>Prompt injection:</strong> attacker text in retrieved content overrides system prompt.</li>
+    <li><strong>Hallucination:</strong> confident but false output. Mitigate with retrieval + chain-of-thought + verification.</li>
+    <li><strong>Format drift:</strong> model wanders from required JSON. Mitigate with constrained decoding / explicit schemas.</li>
+  </ul>
+
+  <div class="example"><strong>Real-world:</strong> GSM8K accuracy jumps from ~18% (zero-shot) to ~57% (8-shot CoT) on PaLM, and self-consistency adds another ~10%.</div>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>Why does CoT help on arithmetic but rarely on simple sentiment classification?</summary>
+    <p>Arithmetic needs multi-step reasoning that benefits from token-by-token expansion. Sentiment is a one-shot judgement — extra reasoning adds noise rather than insight.</p>
+  </details>
+  <details class="socratic"><summary>How does self-consistency differ from temperature 0 + CoT?</summary>
+    <p>Self-consistency uses T &gt; 0 to sample diverse reasoning paths, then majority-votes. T=0 gives a single deterministic chain — if it's wrong, you have nothing to fall back on.</p>
+  </details>
+  <details class="socratic"><summary>Why is ReAct a "loop" rather than a single prompt?</summary>
+    <p>Because actions return observations that change what should happen next. The model must read each observation and decide the next thought/action. This is the agent core.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> Showing the model 3 worked examples in the prompt is <input data-answer="few-shot|few shot|3-shot"> prompting.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Hint: not zero-shot.</div>
+    <div class="solution" hidden><strong>Few-shot</strong>. n-shot more generally.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> The prompting trick "Let's think step by step" is called <input data-answer="chain-of-thought|chain of thought|CoT|cot"> prompting.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>3-letter acronym.</div>
+    <div class="solution" hidden><strong>Chain-of-thought (CoT)</strong>.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> Sampling 20 reasoning chains then majority-voting the answer is <input data-answer="self-consistency|self consistency">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Vote = consensus = consistent.</div>
+    <div class="solution" hidden><strong>Self-consistency</strong>. Compute-for-accuracy trade.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> Interleaving Thought → Action → Observation is the <input data-answer="ReAct|react"> pattern.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>"Reasoning + Acting".</div>
+    <div class="solution" hidden><strong>ReAct</strong> (Yao et al., 2022).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> An attack where untrusted retrieved text overrides the system prompt is called prompt <input data-answer="injection">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Analogous to SQL injection.</div>
+    <div class="solution" hidden>Prompt <strong>injection</strong>. The model can't distinguish trusted vs untrusted text.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> Confidently producing false information is called <input data-answer="hallucination|hallucinating">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Borrowed from psychiatry.</div>
+    <div class="solution" hidden><strong>Hallucination</strong>. RAG (Lesson 10) is the most common mitigation.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>Zero-shot → few-shot → CoT → self-consistency → ReAct (each adds capability or compute).</li>
+    <li>CoT helps multi-step reasoning; not all tasks benefit.</li>
+    <li>Self-consistency = sample + vote; reliable accuracy lift.</li>
+    <li>Watch for prompt injection, hallucination, format drift.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="08-inference-opts.html">← Prev</a>
+  <a href="10-scaling-rag.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

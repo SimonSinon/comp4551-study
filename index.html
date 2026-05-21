@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>COMP4551 — Final Exam Revision Plan</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #ffffff;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --high: #dc2626;
+    --med: #d97706;
+    --low: #059669;
+    --border: #e2e8f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 32px 20px;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e0e7ff 100%);
+    color: #0f172a;
+    line-height: 1.55;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header {
+    background: var(--card);
+    padding: 28px 32px;
+    border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+    margin-bottom: 24px;
+  }
+  h1 { margin: 0 0 6px; font-size: 26px; color: var(--bg); }
+  header p { margin: 4px 0; color: var(--muted); font-size: 14px; }
+  .legend { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .pill.high { background: var(--high); }
+  .pill.med  { background: var(--med); }
+  .pill.low  { background: var(--low); }
+
+  section.block {
+    background: var(--card);
+    padding: 24px 28px;
+    border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+    margin-bottom: 24px;
+  }
+  h2 {
+    font-size: 19px;
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+    color: var(--bg);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  thead th {
+    background: var(--bg);
+    color: #fff;
+    text-align: left;
+    padding: 10px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+  }
+  thead th:first-child { border-top-left-radius: 8px; }
+  thead th:last-child  { border-top-right-radius: 8px; }
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:hover { background: #f8fafc; }
+  td.week { font-weight: 600; white-space: nowrap; color: var(--accent); }
+  td.topic { font-weight: 500; }
+  td.todo  { color: #334155; }
+
+  ul.sub { margin: 4px 0 0 18px; padding: 0; color: #475569; font-size: 13px; }
+  ul.sub li { margin: 2px 0; }
+
+  .plan-table td.day { font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .plan-table td.time { white-space: nowrap; color: var(--muted); font-size: 13px; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>COMP4551 — Large-Scale ML Systems for Foundation Models</h1>
+  <p><strong>Final Exam Revision Plan</strong> · HKUST · Year 4 CS</p>
+  <p>Total study budget: <strong>2 hours / day × 7 days = 14 hours</strong> · Profile: <em>little / no ML background</em>.</p>
+  <p style="font-size:13px;">
+    <strong>Revised strategy:</strong> Days 1–2 build the ML &amp; transformer foundation you cannot skip (otherwise W8–W13 won't make sense). Days 3–5 cover the high-weight systems content. Day 6 covers alignment/RAG/agents/PEFT. Day 7 is a full mock + weak-spot patch.
+  </p>
+  <div class="legend">
+    <span class="pill high">High</span>
+    <span class="pill med">Medium</span>
+    <span class="pill low">Low</span>
+    <span style="font-size:12px;color:var(--muted);align-self:center;">
+      Post-midterm material (W8–W14) is typically the bulk of the final exam.
+    </span>
+  </div>
+</header>
+
+<!-- =================== TOPIC MASTERY TABLE =================== -->
+<section class="block">
+  <h2>1. Key Topics &amp; Subtopics by Week</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:14%">Week / Lecture</th>
+        <th style="width:30%">Topic</th>
+        <th style="width:10%">Priority</th>
+        <th>Subtopics to Master</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr>
+        <td class="week">W1 · L1–2</td>
+        <td class="topic"><a href="lessons/01-ml-prelim.html">Intro &amp; ML Preliminaries</a></td>
+        <td><span class="pill low">Low</span></td>
+        <td>
+          Course logistics; supervised vs unsupervised learning; loss functions; linear/logistic regression; bias–variance; basic linear algebra &amp; probability refresher.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W2 · L3–4</td>
+        <td class="topic"><a href="lessons/02-sgd-autodiff.html">SGD &amp; Automatic Differentiation</a></td>
+        <td><span class="pill med">Medium</span></td>
+        <td>
+          SGD vs GD vs mini-batch; learning rate, momentum, Adam/AdamW;
+          <ul class="sub">
+            <li>Forward-mode vs reverse-mode autodiff</li>
+            <li>Computation graphs, backprop derivation</li>
+            <li>Gradient checkpointing concept</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W4 · L5–6</td>
+        <td class="topic"><a href="lessons/03-transformer-pretrain.html">LM Architecture &amp; Pretraining</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          Transformer block (MHA, FFN, LN, residuals); decoder-only vs encoder-decoder; positional encoding (RoPE/ALiBi); tokenisation (BPE);
+          <ul class="sub">
+            <li>Pretraining objectives (CLM, MLM)</li>
+            <li>Scaling laws (Chinchilla)</li>
+            <li>Dataset curation pipeline</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W5 · L7–8</td>
+        <td class="topic"><a href="lessons/04-gpu-nccl.html">GPU Performance &amp; NCCL</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          GPU memory hierarchy (HBM, SRAM); roofline model; compute- vs memory-bound; FLOPs vs bandwidth;
+          <ul class="sub">
+            <li>Collectives: AllReduce, AllGather, ReduceScatter, Broadcast</li>
+            <li>Ring vs tree algorithms, bandwidth/latency cost models</li>
+            <li>NVLink / PCIe / InfiniBand topology</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W6 · L9–10</td>
+        <td class="topic"><a href="lessons/05-parallelism.html">Data, Pipeline, Tensor &amp; Optimizer Parallelism</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          DP with AllReduce; ZeRO-1/2/3 (optimizer/grad/param sharding);
+          <ul class="sub">
+            <li>Pipeline parallel: GPipe, 1F1B, bubble time</li>
+            <li>Tensor parallel (Megatron): row vs column split, AllReduce points</li>
+            <li>3D parallelism &amp; how to compose them</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W7 · L11</td>
+        <td class="topic"><a href="lessons/06-moe-sequence.html">Sequence &amp; MoE Parallelism</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          Sequence parallel (Megatron-SP), Ring Attention; long-context training;
+          <ul class="sub">
+            <li>MoE: top-k gating, experts, capacity factor</li>
+            <li>Expert parallelism &amp; All-to-All communication</li>
+            <li>Load balancing loss</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W8 · L13</td>
+        <td class="topic"><a href="lessons/07-inference-basics.html">Generative Inference Basics</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          Prefill vs decode phase; autoregressive generation; KV cache structure &amp; memory cost; sampling (greedy, top-k, top-p, temperature); latency vs throughput trade-off.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W9 · L14–15</td>
+        <td class="topic"><a href="lessons/08-inference-opts.html">Inference Algorithm &amp; System Optimisations</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          <ul class="sub">
+            <li>FlashAttention (tiling, online softmax)</li>
+            <li>PagedAttention &amp; vLLM</li>
+            <li>Continuous / in-flight batching</li>
+            <li>Speculative decoding, Medusa</li>
+            <li>Quantisation: INT8/FP8/INT4, GPTQ, AWQ, SmoothQuant</li>
+            <li>Tensor parallel inference, disaggregated prefill/decode</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W10 · L16</td>
+        <td class="topic"><a href="lessons/09-prompt-engineering.html">Prompt Engineering</a></td>
+        <td><span class="pill med">Medium</span></td>
+        <td>
+          Zero/few-shot, CoT, self-consistency, ReAct; instruction formatting; in-context learning intuition.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W11 · L17–18</td>
+        <td class="topic"><a href="lessons/10-scaling-rag.html">Inference-Time Scaling &amp; RAG</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          Best-of-N, MCTS, process reward models, o1-style reasoning;
+          <ul class="sub">
+            <li>RAG pipeline: embed → index → retrieve → augment → generate</li>
+            <li>Dense vs sparse retrieval, hybrid, re-ranking</li>
+            <li>Vector DBs &amp; chunking strategies</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W12 · L19–20</td>
+        <td class="topic"><a href="lessons/11-agents-peft.html">LLM Agents &amp; PEFT</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          Agent loop (plan/act/observe), tool use, function calling, memory;
+          <ul class="sub">
+            <li>LoRA &amp; QLoRA math (low-rank update <em>BA</em>)</li>
+            <li>Adapters, prefix/prompt tuning</li>
+            <li>When to use which PEFT method</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W13 · L21–22</td>
+        <td class="topic"><a href="lessons/12-rlhf-eval.html">RL Alignment &amp; LLM Evaluation</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          SFT → RM → PPO pipeline (RLHF); DPO, GRPO; reward hacking;
+          <ul class="sub">
+            <li>Benchmarks: MMLU, GSM8K, HumanEval, MT-Bench, Arena</li>
+            <li>LLM-as-a-judge, contamination, pass@k</li>
+          </ul>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="week">W14 · L24</td>
+        <td class="topic"><a href="lessons/final-challenge.html">Final Review — Integrative Challenge</a></td>
+        <td><span class="pill high">High</span></td>
+        <td>
+          Consolidate exam-flagged topics; redo example problems from review slides; map every week to one canonical question.
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+</section>
+
+<!-- =================== 1-WEEK PLAN =================== -->
+<section class="block">
+  <h2>2. One-Week Revision Plan (2 hrs/day · 14 hrs total) — Beginner-Friendly</h2>
+  <p style="color:var(--muted);font-size:13px;margin-top:-6px">
+    Each day = <strong>2 × 1-hour blocks</strong>. Because ML basics are weak, days 1–2 are pure <em>foundations</em>: without them, parallelism &amp; inference lectures will feel like jargon. Use a notebook to redo every formula by hand. Use online resources (3Blue1Brown for backprop, Karpathy's "Let's build GPT" for transformers) if a slide is unclear.
+  </p>
+  <table class="plan-table">
+    <thead>
+      <tr>
+        <th style="width:10%">Day</th>
+        <th style="width:9%">Block</th>
+        <th style="width:26%">Focus</th>
+        <th>What to do</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr>
+        <td class="day" rowspan="2">Day 1<br><span style="font-weight:400;font-size:11px;color:var(--muted)">FOUNDATIONS I</span></td>
+        <td class="time">A · 1 hr</td>
+        <td>ML Preliminaries (L2)</td>
+        <td>
+          Learn the vocabulary first: features/labels, train/val/test split, supervised vs unsupervised, overfitting/underfitting, bias–variance.
+          Loss functions: MSE (regression), cross-entropy (classification) — write both formulas.
+          Logistic regression = linear layer + sigmoid + cross-entropy. <strong>Goal:</strong> be able to say what "training a model" mechanically means.
+        </td>
+      </tr>
+      <tr>
+        <td class="time">B · 1 hr</td>
+        <td>SGD &amp; Optimisers (L3)</td>
+        <td>
+          Gradient descent intuition (downhill on loss surface). Difference between full-batch GD, mini-batch SGD, and online SGD — why mini-batch is used in practice.
+          Write the update rules for: SGD, SGD+momentum, Adam/AdamW. By hand, do <strong>one step</strong> of SGD on <em>f(w) = (w−3)²</em> from w=0, lr=0.1.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="day" rowspan="2">Day 2<br><span style="font-weight:400;font-size:11px;color:var(--muted)">FOUNDATIONS II</span></td>
+        <td class="time">A · 1 hr</td>
+        <td>Backprop &amp; Autodiff (L4)</td>
+        <td>
+          Computation graph idea (nodes = ops, edges = tensors). Forward-mode vs reverse-mode autodiff — why reverse-mode is used for deep nets (one backward pass gives all gradients).
+          Manually backprop a 2-layer MLP: <em>y = W₂ · ReLU(W₁x)</em> with MSE loss. Then read about <strong>gradient checkpointing</strong> (trade compute for memory) — this reappears in parallelism.
+        </td>
+      </tr>
+      <tr>
+        <td class="time">B · 1 hr</td>
+        <td>Transformer Architecture (L5)</td>
+        <td>
+          THE most important lecture — every later topic builds on it. Draw the decoder-only block from scratch: <em>Input → LN → MHA → +residual → LN → FFN → +residual</em>.
+          For MHA, write the Q/K/V shapes: input <em>[B, N, d]</em>, heads <em>h</em>, head dim <em>d_h = d/h</em>. Softmax(QKᵀ/√d_h)V. Tokenisation (BPE) at a high level; RoPE positional encoding intuition. Watch a short Karpathy video if confused.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="day" rowspan="2">Day 3<br><span style="font-weight:400;font-size:11px;color:var(--muted)">PRETRAIN + GPU</span></td>
+        <td class="time">A · 1 hr</td>
+        <td>Pretraining &amp; GPU Perf (L6–7)</td>
+        <td>
+          CLM objective (predict next token); dataset pipeline at a high level; Chinchilla scaling law (<em>tokens ≈ 20 × params</em>).
+          GPU memory hierarchy: HBM (big, slow) vs SRAM (small, fast). Roofline model: compute-bound vs memory-bound; arithmetic intensity = FLOPs / bytes. <strong>Why this matters:</strong> decoding is memory-bound — that drives ALL inference optimisations.
+        </td>
+      </tr>
+      <tr>
+        <td class="time">B · 1 hr</td>
+        <td>Collective Communication (L8)</td>
+        <td>
+          Why collectives exist: gradients/activations must move between GPUs. Learn 4 primitives with diagrams: <strong>Broadcast, AllReduce, AllGather, ReduceScatter</strong>.
+          Ring AllReduce cost ≈ <em>2(N−1)/N · M / BW</em>. NVLink &gt; PCIe &gt; InfiniBand (bandwidth order). Don't memorise numbers — understand <em>when</em> each collective is triggered.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="day" rowspan="2">Day 4<br><span style="font-weight:400;font-size:11px;color:var(--muted)">PARALLELISM</span></td>
+        <td class="time">A · 1 hr</td>
+        <td>Data &amp; Pipeline Parallel (L9)</td>
+        <td>
+          Data parallel: each GPU has full model, processes different batch, gradients AllReduced.
+          ZeRO-1/2/3 progressively shards optimiser states / gradients / parameters — memorise the savings table.
+          Pipeline parallel: layers split across GPUs. GPipe (sync, big bubble) vs 1F1B (interleaved, smaller bubble). Bubble fraction = <em>(p−1)/(m+p−1)</em>. Draw timing diagrams.
+        </td>
+      </tr>
+      <tr>
+        <td class="time">B · 1 hr</td>
+        <td>Tensor / Sequence / MoE Parallel (L10–11)</td>
+        <td>
+          Tensor parallel (Megatron): split a linear layer's weight matrix. <em>Column-parallel</em> then <em>row-parallel</em> in MLP block — mark where AllReduce happens (2 per transformer block: MLP and attention).
+          Sequence parallel = split along sequence dim to save activation memory.
+          MoE: gating network → top-k experts → All-to-All comms. Capacity factor &amp; load-balancing loss. Combine all → 3D parallelism.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="day" rowspan="2">Day 5<br><span style="font-weight:400;font-size:11px;color:var(--muted)">INFERENCE (highest weight)</span></td>
+        <td class="time">A · 1 hr</td>
+        <td>Generative Inference Basics + Algorithm Opts (L13–14)</td>
+        <td>
+          <strong>Prefill</strong> (compute-bound, parallel over tokens) vs <strong>decode</strong> (memory-bound, one token at a time).
+          KV-cache: derive size = <em>2 · n_layers · n_heads · d_head · seq_len · batch · bytes</em>. It dominates memory at long context.
+          Sampling: greedy, top-k, top-p, temperature. FlashAttention: tile Q/K/V, online softmax → avoid materialising the N×N matrix. Speculative decoding: small draft model proposes, big model verifies.
+        </td>
+      </tr>
+      <tr>
+        <td class="time">B · 1 hr</td>
+        <td>Inference System Opts + Scaling (L15, L17)</td>
+        <td>
+          <strong>PagedAttention / vLLM:</strong> KV cache stored in fixed-size pages (like OS virtual memory) → no fragmentation.
+          <strong>Continuous batching:</strong> requests join/leave the batch mid-flight → much higher throughput than static batching.
+          Quantisation: FP16 → INT8/FP8/INT4 (GPTQ, AWQ, SmoothQuant). Inference-time scaling: Best-of-N, self-consistency, MCTS, o1-style chain-of-thought with process reward models.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="day" rowspan="2">Day 6<br><span style="font-weight:400;font-size:11px;color:var(--muted)">POST-TRAIN + APPLICATIONS</span></td>
+        <td class="time">A · 1 hr</td>
+        <td>RAG, Agents, Prompting (L16, L18–19)</td>
+        <td>
+          Prompting: zero-shot, few-shot, CoT ("Let's think step by step"), self-consistency, ReAct.
+          RAG pipeline (memorise the 5 steps): <em>chunk → embed → index (vector DB) → retrieve (dense/sparse/hybrid + rerank) → augment prompt → generate</em>.
+          Agents: plan → act (tool/function call) → observe → repeat. Types of memory (short-term context, long-term vector store).
+        </td>
+      </tr>
+      <tr>
+        <td class="time">B · 1 hr</td>
+        <td>PEFT, RLHF, Evaluation (L20–22)</td>
+        <td>
+          <strong>LoRA:</strong> freeze W, train low-rank <em>ΔW = BA</em> where <em>B ∈ ℝ<sup>d×r</sup>, A ∈ ℝ<sup>r×d</sup></em>, r ≪ d. Params drop from d² to 2dr. QLoRA = LoRA on a 4-bit quantised base model.
+          <strong>RLHF:</strong> SFT → reward model → PPO. DPO = skip the RM, optimise directly on preference pairs. GRPO = group-relative variant used in DeepSeek.
+          Benchmarks: MMLU, GSM8K, HumanEval (pass@k), MT-Bench, Chatbot Arena (Elo), LLM-as-judge — know what each measures and its weakness.
+        </td>
+      </tr>
+
+      <tr>
+        <td class="day" rowspan="2">Day 7<br><span style="font-weight:400;font-size:11px;color:var(--muted)">MOCK + PATCH</span></td>
+        <td class="time">A · 1 hr</td>
+        <td>Full timed mock exam</td>
+        <td>
+          Slides closed. Work through the L12 midterm review + L24 final review questions under exam conditions. Mark every question where you hesitated more than 30 seconds — these are your weak spots.
+        </td>
+      </tr>
+      <tr>
+        <td class="time">B · 1 hr</td>
+        <td>Weak-spot patch + 1-page cheat sheet</td>
+        <td>
+          Re-derive ONLY your 3–5 weakest topics out loud. Then build a single A4 formula sheet:
+          <em>KV-cache size · AllReduce ring cost · ZeRO memory · pipeline bubble · LoRA param count · Chinchilla 20× ratio · roofline arithmetic intensity · attention softmax(QKᵀ/√d)V</em>.
+          Sleep early.
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:0">
+    <strong>Beginner rules:</strong> (1) Never memorise a formula you cannot interpret — always say "this term represents X" out loud. (2) If a lecture slide is opaque, spend 5–10 min on an external explainer (3Blue1Brown, Karpathy, Lilian Weng's blog) before returning. (3) Active recall &gt; re-reading. (4) Don't skip Days 1–2 to save time — without them, Days 3–6 will not stick.
+  </p>
+</section>
+
+<footer>Generated study plan · COMP4551 Final Exam Prep</footer>
+</div>
+</body>
+</html>

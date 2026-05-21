@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 2 — SGD &amp; Automatic Differentiation</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="01-ml-prelim.html">← Prev: ML Preliminaries</a>
+  <a href="03-transformer-pretrain.html">Next: Transformer &amp; Pretraining →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 2 · Foundation</span>
+  <h1>Stochastic Gradient Descent &amp; Automatic Differentiation</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 1 (losses, parameters).</li><li>Derivatives and chain rule.</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Write the update rule for SGD, SGD+momentum, and Adam.</li>
+      <li>Explain why mini-batch SGD is the standard, not full-batch GD.</li>
+      <li>Build a computation graph and run reverse-mode autodiff by hand for a small expression.</li>
+      <li>Describe gradient checkpointing and when to use it.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts</h2>
+
+  <h3>Gradient descent (GD)</h3>
+  <p>Intuition: stand on a hill (loss surface), look at the slope (gradient), take a step downhill. Repeat.</p>
+  <span class="formula">θ ← θ − η · ∇_θ L(θ)</span>
+  <p><code>η</code> is the <strong>learning rate</strong>. Too big → overshoot/diverge; too small → glacial.</p>
+
+  <h3>SGD vs mini-batch vs full-batch</h3>
+  <ul>
+    <li><strong>Full-batch GD:</strong> use ALL N training examples per step. Stable but slow and memory-hungry.</li>
+    <li><strong>SGD (true):</strong> 1 example per step. Noisy but fast updates.</li>
+    <li><strong>Mini-batch SGD:</strong> batch of B examples (e.g., B=32..2048). The standard. Balances GPU parallelism with noise that helps escape sharp minima.</li>
+  </ul>
+
+  <h3>Momentum &amp; Adam</h3>
+  <p>Plain SGD can zig-zag in narrow valleys. <strong>Momentum</strong> accumulates a velocity vector:</p>
+  <span class="formula">v ← β·v + ∇L,  θ ← θ − η·v   (β ≈ 0.9)</span>
+  <p><strong>Adam</strong> = momentum + per-parameter adaptive learning rate using a running estimate of the gradient's squared magnitude. <strong>AdamW</strong> decouples weight decay from the adaptive update — used in virtually all modern LLM training.</p>
+
+  <h3>Automatic differentiation (autodiff)</h3>
+  <p>We don't write derivatives by hand for million-parameter networks. Autodiff records every elementary op (the <em>computation graph</em>) and applies the chain rule mechanically.</p>
+  <ul>
+    <li><strong>Forward-mode:</strong> propagate derivatives alongside values. Cost ≈ <em>n_inputs</em> × forward. Good when inputs ≪ outputs.</li>
+    <li><strong>Reverse-mode (backprop):</strong> one forward pass to cache activations, then one backward pass computes ALL gradients in O(1× forward). Used everywhere in deep learning because <em>n_params</em> ≫ <em>n_outputs</em> (loss is scalar).</li>
+  </ul>
+
+  <div class="example"><strong>Real-world:</strong> PyTorch's <code>loss.backward()</code> = reverse-mode autodiff over the dynamically built graph. JAX's <code>grad()</code> is the same idea, statically traced.</div>
+
+  <h3>Gradient checkpointing</h3>
+  <p>Backprop needs cached activations from the forward pass → memory-heavy. <strong>Checkpointing</strong> stores only a subset (e.g., one per layer block) and recomputes the missing activations during backward. Trades ~30% extra compute for large memory savings. Critical when training large transformers.</p>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>If the loss explodes after a few steps, what's the most likely cause and the first fix?</summary>
+    <p>Learning rate too high. Reduce η (often by 10×) or add gradient clipping.</p>
+  </details>
+  <details class="socratic"><summary>Why is reverse-mode autodiff preferred for neural nets but forward-mode is fine for some scientific code?</summary>
+    <p>Reverse-mode cost ≈ 1 forward pass regardless of #parameters, but ≈ #outputs forward passes. NNs have 1 scalar output (loss) and millions of inputs (params) → reverse wins massively. Scientific code with few inputs and many outputs is the opposite case.</p>
+  </details>
+  <details class="socratic"><summary>Gradient checkpointing slows training. Why use it?</summary>
+    <p>Because memory is often the binding constraint for large models — without it, the model wouldn't fit on the GPU at all. ~30% extra time is acceptable to enable training.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> One step of SGD on <code>f(w) = (w − 3)²</code> from <code>w = 0</code>, learning rate <code>η = 0.1</code>. New w = <input data-answer="0.6" data-tolerance="0.01"></p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>f'(w) = 2(w−3). Evaluate at w=0, then w ← w − η·f'(w).</div>
+    <div class="solution" hidden>f'(0) = 2(0−3) = −6. w ← 0 − 0.1·(−6) = <strong>0.6</strong>.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> A batch of 1024 examples is split across 8 GPUs (data parallel). Each GPU computes the gradient on its <input data-answer="128"> examples, then all gradients are averaged.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>1024 / 8 = ?</div>
+    <div class="solution" hidden>128 examples/GPU. This is called the "per-device batch size".</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> The optimiser used by almost all modern LLM training is <input data-answer="AdamW|adamw">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>It decouples weight decay from Adam.</div>
+    <div class="solution" hidden><strong>AdamW</strong> — Adam with decoupled weight decay (Loshchilov &amp; Hutter, 2019).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> Reverse-mode autodiff for the expression <code>L = (x · w − y)²</code> at <code>x=2, w=3, y=4</code>. The gradient ∂L/∂w = <input data-answer="8" data-tolerance="0.001"></p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Let u = x·w − y. Then L = u². ∂L/∂w = 2u · x.</div>
+    <div class="solution" hidden>u = 2·3 − 4 = 2. ∂L/∂w = 2·2·2 = <strong>8</strong>.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> Storing all activations for a 100-layer transformer runs out of GPU memory. The technique that recomputes activations during the backward pass to save memory is called gradient <input data-answer="checkpointing">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Sometimes called "activation recomputation".</div>
+    <div class="solution" hidden>Gradient <strong>checkpointing</strong> (a.k.a. activation recomputation). Trades ~30% extra compute for large memory savings.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> The momentum coefficient β in SGD+momentum is typically <input data-answer="0.9" data-tolerance="0.01">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Very common default. Less than 1, more than 0.5.</div>
+    <div class="solution" hidden><strong>0.9</strong> is the standard default. Higher (0.99) gives more smoothing but slower adaptation.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> Forward-mode autodiff cost scales with the number of <input data-answer="inputs|input variables|parameters">, while reverse-mode cost scales with the number of <input data-answer="outputs">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Think about how each mode "fans out": forward sweeps one input variable through the graph; reverse sweeps one output backward.</div>
+    <div class="solution" hidden>Forward ∝ #<strong>inputs</strong>, reverse ∝ #<strong>outputs</strong>. NN loss is scalar (1 output) → reverse-mode is ideal.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>Mini-batch SGD is the default; AdamW dominates LLM training.</li>
+    <li>Update: <code>θ ← θ − η · ∇L</code>. Learning rate is the most critical hyperparameter.</li>
+    <li>Reverse-mode autodiff = backprop = one backward pass for all params.</li>
+    <li>Gradient checkpointing trades compute for memory, enabling huge models.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="01-ml-prelim.html">← Prev</a>
+  <a href="03-transformer-pretrain.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

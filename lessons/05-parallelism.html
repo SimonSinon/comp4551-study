@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 5 — Data, Pipeline, Tensor &amp; Optimizer Parallelism</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="04-gpu-nccl.html">← Prev</a>
+  <a href="06-moe-sequence.html">Next: MoE &amp; Sequence →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 5 · HIGH priority</span>
+  <h1>Data, Pipeline, Tensor &amp; Optimizer Parallelism</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 3 (transformer block, FFN, MHA shapes).</li><li>Lesson 4 (collectives, ring AllReduce).</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Compare DP, PP, TP, and ZeRO 1/2/3 on what they shard and what they cost.</li>
+      <li>Compute the pipeline bubble fraction for given p and m.</li>
+      <li>Identify the two AllReduces per transformer block in Megatron-style TP.</li>
+      <li>Decide which strategies to combine for a given cluster topology.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts</h2>
+
+  <h3>Data parallelism (DP)</h3>
+  <p>Each GPU holds a full copy of the model and processes a different mini-batch slice. After the backward pass, gradients are <strong>AllReduced</strong> across GPUs, then each takes the same optimiser step.</p>
+  <p>Pros: simple, near-linear scaling. Cons: model must fit on one GPU; gradient AllReduce volume scales with #params.</p>
+
+  <h3>ZeRO (Zero Redundancy Optimizer)</h3>
+  <p>Pure DP replicates everything → wasteful. ZeRO shards model state across the DP group:</p>
+  <ul>
+    <li><strong>ZeRO-1:</strong> shard <em>optimizer states</em> (Adam moments) → ~4× memory saving for Adam.</li>
+    <li><strong>ZeRO-2:</strong> additionally shard <em>gradients</em> → ~8× saving.</li>
+    <li><strong>ZeRO-3:</strong> additionally shard <em>parameters</em>; AllGather them just-in-time per layer, then drop → memory ≈ 1/N × full. Communication: ReduceScatter for grads + AllGather for params per step.</li>
+  </ul>
+  <p>FSDP (PyTorch) is essentially ZeRO-3.</p>
+
+  <h3>Pipeline parallelism (PP)</h3>
+  <p>Split the model <em>layer-wise</em> across p stages, one per GPU. A micro-batch flows through stage 0 → 1 → … → p−1. Backward flows in reverse.</p>
+  <p>Problem: naive pipelining leaves GPUs idle (the "bubble"). Split each batch into m <strong>micro-batches</strong> to overlap:</p>
+  <span class="formula">bubble_fraction = (p − 1) / (m + p − 1)</span>
+  <ul>
+    <li><strong>GPipe:</strong> all forwards then all backwards. Simple, peak activation memory.</li>
+    <li><strong>1F1B (PipeDream):</strong> interleave 1-forward-1-backward, smaller activation memory.</li>
+  </ul>
+  <p>Pros: parameter memory split. Cons: bubble, point-to-point comms between stages, requires balanced layer cost.</p>
+
+  <h3>Tensor parallelism (TP, Megatron-LM)</h3>
+  <p>Split <em>individual weight matrices</em> across GPUs <em>within</em> a layer. Two patterns:</p>
+  <ul>
+    <li><strong>Column-parallel:</strong> split W along output dim. Each GPU computes its slice of output. No comm needed yet.</li>
+    <li><strong>Row-parallel:</strong> split W along input dim. Each GPU computes a partial sum; AllReduce to combine.</li>
+  </ul>
+  <p>In a transformer block, the standard pattern is column-parallel → row-parallel for both the MLP and attention output projection. That gives <strong>2 AllReduces per block</strong> (one for attention, one for MLP), in both forward and backward.</p>
+  <p>TP needs <em>very high bandwidth</em> (it happens inside every layer), so it lives on NVLink within a node, typically TP=2/4/8.</p>
+
+  <h3>3D parallelism (combining all three)</h3>
+  <p>Real large-scale training uses all together:</p>
+  <ul>
+    <li><strong>TP</strong> inside a node (NVLink).</li>
+    <li><strong>PP</strong> across nodes (a few inter-node hops per micro-batch).</li>
+    <li><strong>DP</strong> on top of TP×PP groups, sharded by ZeRO.</li>
+  </ul>
+  <p>Megatron-Turing NLG, Llama-3 405B, etc. all use this 3D arrangement.</p>
+
+  <div class="example"><strong>Real-world:</strong> A 175B model on 1024 GPUs might use TP=8 (within node), PP=8 (8 stages), DP=16. 8×8×16 = 1024.</div>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>Why does ZeRO-3 save more memory than DP but cost more communication?</summary>
+    <p>It only stores 1/N of params/grads/optimizer states on each GPU (saving memory), but must AllGather full params before each layer and ReduceScatter gradients after — extra comm vs pure DP's single AllReduce.</p>
+  </details>
+  <details class="socratic"><summary>You have 4 GPUs in a node connected by NVLink and 4 nodes connected by InfiniBand. Where would you put TP and where PP?</summary>
+    <p>TP inside the node (it needs the high NVLink BW because there are 2 AllReduces per layer). PP across nodes (only stage boundaries cross IB, which is fine since point-to-point is much less data than TP's AllReduces).</p>
+  </details>
+  <details class="socratic"><summary>Increasing micro-batches m reduces the pipeline bubble. What's the cost?</summary>
+    <p>Larger activation memory (more in-flight micro-batches) and longer optimiser-step latency. 1F1B partially mitigates the memory cost.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> Pure data parallelism with N=8 GPUs replicates the full model on each. The number of model copies kept in memory = <input data-answer="8">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>"Pure" DP = no sharding.</div>
+    <div class="solution" hidden><strong>8</strong> copies. ZeRO removes this redundancy.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> ZeRO stage that shards optimizer states + gradients + parameters: ZeRO-<input data-answer="3">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>The highest stage.</div>
+    <div class="solution" hidden>ZeRO-<strong>3</strong>. Equivalent to PyTorch FSDP.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> Pipeline with p = 4 stages and m = 8 micro-batches. Bubble fraction = (p−1)/(m+p−1) = <input data-answer="0.273|3/11" data-tolerance="0.01"> (decimal).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>3 / (8 + 3) = 3/11.</div>
+    <div class="solution" hidden>3/11 ≈ <strong>0.273</strong> → ~27% of time wasted in the bubble. Bigger m shrinks it.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> Megatron-style tensor parallel inserts <input data-answer="2"> AllReduce(s) per transformer block (in the forward pass).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>One at the end of the attention sub-block, one at the end of the MLP sub-block.</div>
+    <div class="solution" hidden><strong>2</strong> AllReduces forward (and 2 backward) per block. That's why TP demands NVLink-class bandwidth.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> A column-parallel linear is typically followed by a <input data-answer="row-parallel|row parallel"> linear in the MLP, so that no comm is needed in the middle.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Pairing makes the partial sums add up at the end.</div>
+    <div class="solution" hidden><strong>Row-parallel</strong>. Column→row composition needs only one AllReduce at the very end of the pair.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> 3D parallel layout: TP=8, PP=8, DP=16. Total GPUs = <input data-answer="1024">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Multiply.</div>
+    <div class="solution" hidden>8 × 8 × 16 = <strong>1024</strong> GPUs.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> 1F1B reduces peak <input data-answer="activation|activations"> memory compared to GPipe.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>By starting backward earlier, fewer micro-batch activations are alive at once.</div>
+    <div class="solution" hidden><strong>Activation</strong> memory. Peak ≈ p (the depth) instead of m (the number of micro-batches).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q8.</span> A 100B model has 200B bytes of FP16 weights. Pure DP across 8 GPUs uses <input data-answer="1600"> GB total for weights (sum across all GPUs).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>200 GB × 8 copies.</div>
+    <div class="solution" hidden>200 × 8 = <strong>1600 GB</strong>. With ZeRO-3, only ~200 GB total across GPUs.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>DP = replicate model, AllReduce gradients. Simple, but memory-wasteful.</li>
+    <li>ZeRO-1/2/3 shard optimizer / gradients / parameters → big memory savings.</li>
+    <li>PP splits by layer; m micro-batches reduce bubble (p−1)/(m+p−1).</li>
+    <li>TP splits weight matrices; 2 AllReduces per block — needs NVLink.</li>
+    <li>3D parallel = TP intra-node × PP inter-node × DP/ZeRO on top.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="04-gpu-nccl.html">← Prev</a>
+  <a href="06-moe-sequence.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

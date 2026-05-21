@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 12 — RL Alignment &amp; LLM Evaluation</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="11-agents-peft.html">← Prev</a>
+  <a href="final-challenge.html">Final Challenge →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 12 · HIGH priority</span>
+  <h1>RL Alignment &amp; LLM Evaluation</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 1 (cross-entropy loss).</li><li>Lesson 11 (PEFT — RM is often trained with LoRA).</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Outline the SFT → RM → PPO pipeline (RLHF).</li>
+      <li>Explain the DPO loss intuition vs PPO.</li>
+      <li>Identify reward hacking and common alignment pitfalls.</li>
+      <li>Name and characterise the main LLM benchmarks.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts — Alignment</h2>
+
+  <h3>Why alignment?</h3>
+  <p>A pretrained LLM is good at next-token prediction but not at <em>being helpful</em>. Alignment turns a raw LM into an instruction-following, safe assistant.</p>
+
+  <h3>Stage 1 — Supervised Fine-Tuning (SFT)</h3>
+  <p>Fine-tune on curated (prompt, ideal-response) pairs with the standard next-token loss. Teaches format and instruction following. Often uses LoRA.</p>
+
+  <h3>Stage 2 — Reward Model (RM)</h3>
+  <p>Collect pairs of responses (a, b) for the same prompt with a human preference label (a ≻ b). Train a model <code>r_θ(prompt, response)</code> so that <code>r_θ(prompt, a) &gt; r_θ(prompt, b)</code>, using the Bradley–Terry loss:</p>
+  <span class="formula">L_RM = −log σ(r(p, a) − r(p, b))</span>
+  <p>r is usually the SFT model with a scalar reward head.</p>
+
+  <h3>Stage 3 — PPO (RLHF)</h3>
+  <p>Use the RM as the reward signal to RL-fine-tune the SFT model. Proximal Policy Optimization keeps the policy near the original (KL penalty) to avoid mode collapse and reward hacking.</p>
+  <span class="formula">objective = E[r(p, y)] − β · KL(π_θ ‖ π_ref)</span>
+  <p>Trains 4 networks simultaneously (policy, ref, RM, value) → expensive and unstable.</p>
+
+  <h3>DPO — Direct Preference Optimization</h3>
+  <p>Skip the explicit RM and PPO. Show that the optimal RLHF policy has a closed-form relation to the reference, and rewrite the preference loss directly on the policy:</p>
+  <span class="formula">L_DPO = −log σ( β · [log π(a|p)/π_ref(a|p) − log π(b|p)/π_ref(b|p)] )</span>
+  <p>Just a classification loss on preference pairs. Much simpler and more stable than PPO, similar or better quality.</p>
+
+  <h3>GRPO (DeepSeek-R1)</h3>
+  <p>Group-Relative Policy Optimization: like PPO but estimates advantage from a <em>group</em> of sampled responses per prompt (no value network needed). Cheaper, used for o1-style reasoning training.</p>
+
+  <h3>Reward hacking</h3>
+  <p>Policy finds prompts that maximise the RM but a human would dislike (e.g., always starts with "As an AI…", uses fluffy hedging). The KL penalty and frequent RM refreshes mitigate this.</p>
+
+  <h2 style="margin-top:24px">Concepts — Evaluation</h2>
+
+  <h3>Benchmark families</h3>
+  <ul>
+    <li><strong>MMLU:</strong> multiple-choice across 57 academic subjects. General knowledge / reasoning.</li>
+    <li><strong>GSM8K:</strong> grade-school math word problems. Step-by-step reasoning.</li>
+    <li><strong>MATH:</strong> competition-level math. Much harder.</li>
+    <li><strong>HumanEval / MBPP:</strong> code generation, scored by <strong>pass@k</strong> (% of problems solved in k samples).</li>
+    <li><strong>MT-Bench:</strong> open-ended multi-turn questions, judged by GPT-4 (LLM-as-judge).</li>
+    <li><strong>Chatbot Arena:</strong> human pairwise voting → Elo ratings. Considered the gold standard for chat quality.</li>
+    <li><strong>HELM, BIG-Bench:</strong> broad meta-benchmarks.</li>
+  </ul>
+
+  <h3>pass@k formula</h3>
+  <span class="formula">pass@k = 1 − C(n−c, k) / C(n, k)</span>
+  <p>where n = #samples generated, c = #correct.</p>
+
+  <h3>LLM-as-judge pitfalls</h3>
+  <ul>
+    <li><strong>Position bias:</strong> judges favour the first (or last) response.</li>
+    <li><strong>Length bias:</strong> favours longer answers.</li>
+    <li><strong>Self-preference:</strong> a model judging itself rates itself higher.</li>
+    <li><strong>Contamination:</strong> the judge has seen the test prompt.</li>
+  </ul>
+
+  <h3>Data contamination</h3>
+  <p>Benchmark questions leak into training data → inflated scores. Mitigations: held-out test sets, time-cutoff testing, decontamination filtering by n-gram overlap.</p>
+
+  <div class="example"><strong>Real-world:</strong> DeepSeek-R1 was trained with GRPO + rule-based rewards (correct answer + correct format) instead of a learned RM, demonstrating RL alignment without a separate reward model.</div>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>Why include a KL penalty in PPO?</summary>
+    <p>To stop the policy from drifting too far from the reference (SFT) model. Without it, the policy exploits the RM's flaws (reward hacking) and loses general capability.</p>
+  </details>
+  <details class="socratic"><summary>What does DPO actually optimise — a reward, or preferences directly?</summary>
+    <p>Preferences directly. DPO derives that the optimal RLHF policy implies a particular log-ratio relationship, then minimises a classification loss on preference pairs. No explicit RM, no rollouts.</p>
+  </details>
+  <details class="socratic"><summary>Why is Chatbot Arena often trusted more than MMLU?</summary>
+    <p>MMLU is a fixed multiple-choice test — easy to contaminate, doesn't measure real chat quality. Arena uses live human pairwise votes on diverse prompts, giving a more robust quality signal (Elo).</p>
+  </details>
+  <details class="socratic"><summary>An LLM-as-judge consistently rates the response on the left higher. What is happening?</summary>
+    <p>Position bias. Mitigate by randomising order or running each pair twice with swapped positions and averaging.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> The 3 classical RLHF stages in order: <input data-answer="SFT|sft">, RM, PPO.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Supervised first.</div>
+    <div class="solution" hidden><strong>SFT</strong> → RM → PPO.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> The loss used to train a reward model from preference pairs is the <input data-answer="Bradley-Terry|Bradley Terry|bradley-terry"> loss.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Sigmoid of reward margin.</div>
+    <div class="solution" hidden><strong>Bradley–Terry</strong> pairwise preference loss.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> The PPO objective adds a <input data-answer="KL|KL divergence"> penalty against a reference policy to prevent the policy from drifting too far.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Divergence between distributions.</div>
+    <div class="solution" hidden><strong>KL</strong> (Kullback–Leibler) divergence.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> The alignment method that bypasses the explicit reward model is <input data-answer="DPO|Direct Preference Optimization|direct preference optimization">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>3-letter acronym.</div>
+    <div class="solution" hidden><strong>DPO</strong> (Direct Preference Optimization, Rafailov et al. 2023).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> When a policy learns to game the reward model rather than truly improve, it is called reward <input data-answer="hacking">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Exploiting flaws in the RM.</div>
+    <div class="solution" hidden>Reward <strong>hacking</strong> (a.k.a. specification gaming).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> The DeepSeek-R1 RL algorithm that drops the value network and estimates advantage from a group of samples is <input data-answer="GRPO|grpo">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Group-Relative something Optimization.</div>
+    <div class="solution" hidden><strong>GRPO</strong> (Group-Relative Policy Optimization).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> The code-generation benchmark scored by pass@k is <input data-answer="HumanEval|humaneval">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Released by OpenAI with the Codex paper.</div>
+    <div class="solution" hidden><strong>HumanEval</strong> (164 Python problems, scored with unit tests).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q8.</span> Live pairwise human votes producing Elo ratings of LLMs are aggregated by <input data-answer="Chatbot Arena|LMSYS Arena|Arena|chatbot arena">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Run by LMSYS.</div>
+    <div class="solution" hidden><strong>Chatbot Arena</strong> (LMSYS).</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q9.</span> The general phenomenon of test data leaking into training data is called <input data-answer="contamination|data contamination|benchmark contamination">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>"Polluted" training set.</div>
+    <div class="solution" hidden>Data <strong>contamination</strong>. Inflates benchmark scores and undermines comparisons.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>RLHF = SFT → RM (Bradley–Terry) → PPO (with KL to reference).</li>
+    <li>DPO = preference loss directly on policy; no RM, no rollouts.</li>
+    <li>GRPO = PPO minus value network, used in DeepSeek-R1.</li>
+    <li>Reward hacking ⇒ keep KL penalty + refresh RM.</li>
+    <li>Benchmarks: MMLU (knowledge), GSM8K/MATH (reasoning), HumanEval (code, pass@k), MT-Bench/Arena (chat).</li>
+    <li>Beware contamination, LLM-judge biases (position, length, self-preference).</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="11-agents-peft.html">← Prev</a>
+  <a href="final-challenge.html">Final Challenge →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>

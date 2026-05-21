@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lesson 6 — Sequence &amp; MoE Parallelism</title>
+<link rel="stylesheet" href="_shared.css">
+</head>
+<body>
+<div class="container">
+
+<div class="topbar">
+  <a href="05-parallelism.html">← Prev</a>
+  <a href="07-inference-basics.html">Next: Inference Basics →</a>
+</div>
+
+<header class="lesson-header">
+  <span class="lesson-tag">Lesson 6 · HIGH priority</span>
+  <h1>Sequence &amp; MoE Parallelism</h1>
+  <div class="prereqs"><strong>Prerequisites</strong>
+    <ul><li>Lesson 5 (TP, DP).</li><li>Lesson 3 (attention shape O(N²)).</li></ul>
+  </div>
+  <div class="objectives"><strong>By the end you can:</strong>
+    <ul>
+      <li>Explain why sequence parallelism is needed for long contexts.</li>
+      <li>Describe Ring Attention and what it communicates.</li>
+      <li>Define MoE: gating, top-k, capacity factor, expert parallelism.</li>
+      <li>Identify when All-to-All comms are triggered in MoE.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Concepts</h2>
+
+  <h3>Why sequence parallelism (SP)?</h3>
+  <p>Activation memory scales with sequence length N. Modern context windows (32k–1M tokens) make activations the dominant memory cost — even with TP, the LayerNorm and dropout activations remain replicated and large.</p>
+  <p>Megatron-SP splits these along the sequence dimension across the TP group, exchanged via cheap AllGather/ReduceScatter at TP boundaries. Net: activation memory drops roughly N/TP.</p>
+
+  <h3>Ring Attention (for very long contexts)</h3>
+  <p>For sequences too long for a single GPU even after SP, split tokens across GPUs in a ring. Each GPU holds its chunk of Q, K, V; it then rotates its K, V chunk around the ring, computing partial attention against each visiting chunk and combining results with online softmax.</p>
+  <p>Communication overlaps with computation; total data sent ≈ KV size × (ring length − 1). Used by frameworks training million-token contexts.</p>
+
+  <h3>Mixture of Experts (MoE) — sparse activation</h3>
+  <p>Replace each dense FFN with E experts (each its own FFN) plus a tiny <strong>gating network</strong> that, per token, picks the <strong>top-k</strong> experts (typically k=1 or 2). Only the chosen experts compute → params grow but FLOPs per token stay small.</p>
+  <span class="formula">gate_logits = W_gate · x         (shape: E)
+top-k indices &amp; weights = topk(softmax(gate_logits), k)
+y = Σ_{i∈top-k} weight_i · Expert_i(x)</span>
+  <p>Example: Mixtral 8×7B has 8 experts, k=2 → 13B active params per token but ~47B total.</p>
+
+  <h3>Capacity factor &amp; load-balancing loss</h3>
+  <p>Each expert is allocated a fixed buffer (capacity = C·N·k/E). If too many tokens are routed to one expert, the surplus is <strong>dropped</strong> (skipped through residual). C &gt; 1 (e.g., 1.25) gives slack.</p>
+  <p>To prevent collapse (one expert hogging everything), an <strong>auxiliary load-balancing loss</strong> encourages uniform routing.</p>
+
+  <h3>Expert parallelism &amp; All-to-All</h3>
+  <p>Place different experts on different GPUs (the <strong>EP</strong> dimension). Each token must travel to wherever its chosen experts live, then results return.</p>
+  <p>This is implemented with <strong>two All-to-All</strong> collectives per MoE layer:</p>
+  <ol>
+    <li>Dispatch: send token activations to expert GPUs.</li>
+    <li>Combine: send expert outputs back to original token GPU.</li>
+  </ol>
+  <p>All-to-All is the heaviest comm pattern in MoE training and is the main reason MoE inference is tricky.</p>
+
+  <div class="example"><strong>Real-world:</strong> DeepSeek-V3 / Mixtral / Qwen-MoE all use top-2 (or fine-grained top-k) gating with auxiliary balance losses and EP across nodes.</div>
+</section>
+
+<section class="card">
+  <h2>2. Socratic check</h2>
+  <details class="socratic"><summary>Why doesn't pure TP solve the long-context activation memory problem?</summary>
+    <p>TP splits weights, not activations along the sequence dim. The LayerNorm/residual/dropout activations stay full-length on every TP rank. SP fixes this by splitting along N.</p>
+  </details>
+  <details class="socratic"><summary>What's the key idea of Ring Attention?</summary>
+    <p>Rotate K/V chunks around a ring of GPUs while each GPU holds its Q chunk fixed; combine partial attention outputs with online softmax. Communication overlaps with compute, enabling contexts that don't fit on one device.</p>
+  </details>
+  <details class="socratic"><summary>If MoE has more parameters but the same FLOPs per token, what is the trade-off vs a dense model?</summary>
+    <p>You gain capacity (parameters) cheaply in compute, but pay in memory, communication (All-to-All), and routing complexity. Inference batching is also harder because experts have variable load.</p>
+  </details>
+  <details class="socratic"><summary>What happens when an expert's capacity is exceeded?</summary>
+    <p>Excess tokens are dropped — the expert simply doesn't process them; they pass through via the residual connection. Capacity factor C&gt;1 provides slack.</p>
+  </details>
+</section>
+
+<section class="card">
+  <h2>3. Exercises</h2>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q1.</span> Sequence parallelism splits activations along the <input data-answer="sequence|sequence length|N|token"> dimension.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Hint is in the name.</div>
+    <div class="solution" hidden>The <strong>sequence</strong> (N) dimension. Each TP rank holds N/TP tokens of the activation.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q2.</span> Ring Attention rotates which tensors around the ring of GPUs? <input data-answer="K and V|K,V|K and V chunks|KV"></p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Q stays put; the things Q needs to dot-product against move.</div>
+    <div class="solution" hidden><strong>K and V</strong>. Q is fixed per GPU; K/V chunks visit each GPU in turn.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q3.</span> Mixtral 8×7B uses k = <input data-answer="2"> active experts per token.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Common modern choice.</div>
+    <div class="solution" hidden>k = <strong>2</strong>. Top-2 gating; ~13B active out of ~47B total params.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q4.</span> Each MoE layer uses <input data-answer="2"> All-to-All collectives (dispatch + combine).</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>One to send tokens to experts, one to bring outputs back.</div>
+    <div class="solution" hidden><strong>2</strong> All-to-Alls per MoE layer. This is the dominant comm cost in MoE training.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q5.</span> A loss term added to prevent a single expert from dominating routing is called the <input data-answer="load balancing loss|load-balancing loss|auxiliary loss|load balance loss">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Encourages uniform expert utilisation.</div>
+    <div class="solution" hidden><strong>Load-balancing (auxiliary) loss</strong>. Penalises imbalanced gate probabilities.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q6.</span> 1024 tokens, E = 8 experts, k = 2, capacity factor C = 1.25. Per-expert capacity = C·N·k/E = <input data-answer="320"> tokens.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>1.25 × 1024 × 2 / 8.</div>
+    <div class="solution" hidden>1.25 × 1024 × 2 / 8 = <strong>320</strong> tokens/expert.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q7.</span> If a token is routed to an expert that's full, the token is <input data-answer="dropped">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Doesn't get expert processing; passes via residual.</div>
+    <div class="solution" hidden><strong>Dropped</strong>. Residual path preserves the activation; expert simply skipped.</div>
+  </div>
+
+  <div class="exercise">
+    <p><span class="ex-num">Q8.</span> Expert parallelism places different experts on different <input data-answer="GPUs|devices|workers">.</p>
+    <div class="buttons">
+      <button onclick="checkExercise(this)">Check</button>
+      <button class="secondary" onclick="showHint(this)">Hint</button>
+      <button class="secondary" onclick="showSolution(this)">Show solution</button>
+    </div>
+    <div class="feedback"></div>
+    <div class="hint" hidden>Each expert is large; one device may hold few of them.</div>
+    <div class="solution" hidden><strong>GPUs</strong> (or devices). Triggers All-to-All routing.</div>
+  </div>
+</section>
+
+<section class="card summary-box">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>SP splits activations along the sequence axis → long-context training feasible.</li>
+    <li>Ring Attention rotates K/V chunks for sequences too long for one GPU.</li>
+    <li>MoE: tiny gate picks top-k of E experts per token → cheap FLOPs, huge params.</li>
+    <li>Load-balancing loss + capacity factor prevent collapse and overflow.</li>
+    <li>Expert parallelism → 2 All-to-All per MoE layer; the dominant comm cost.</li>
+  </ul>
+</section>
+
+<div class="nav-bottom">
+  <a href="05-parallelism.html">← Prev</a>
+  <a href="07-inference-basics.html">Next →</a>
+</div>
+
+</div>
+<script src="_shared.js"></script>
+</body>
+</html>
