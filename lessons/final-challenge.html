@@ -1,8 +1,8 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Final Integrative Challenge â€” COMP4551</title>
+<title>Final Integrative Challenge — COMP4551</title>
 <link rel="stylesheet" href="_shared.css">
 <style>
   .scenario { background: #ecfeff; border-left: 5px solid #0891b2;
@@ -19,12 +19,12 @@
 <div class="container">
 
 <div class="topbar">
-  <a href="12-rlhf-eval.html">â† Prev: RLHF &amp; Eval</a>
-  <a href="../index.html">Back to plan â†’</a>
+  <a href="12-rlhf-eval.html">← Prev: RLHF &amp; Eval</a>
+  <a href="../index.html">Back to plan →</a>
 </div>
 
 <header class="lesson-header">
-  <span class="lesson-tag">ðŸ† Final Challenge Â· All lessons combined</span>
+  <span class="lesson-tag">🏆 Final Challenge · All lessons combined</span>
   <h1>Integrative Challenge: Ship a 70B Model</h1>
   <div class="prereqs"><strong>Prerequisites</strong>
     <ul><li>All 12 lessons.</li></ul>
@@ -40,13 +40,13 @@
 </header>
 
 <section class="card scenario">
-  <h3>ðŸ“‹ Scenario</h3>
-  <p>You are the lead ML engineer at a startup. Your task: <strong>train, align, and serve a 70B-parameter LLM</strong> for a customer-support chatbot grounded in the company's internal documentation. Your hardware: <strong>1024 H100 GPUs</strong> (128 nodes Ã— 8 GPUs each, NVLink intra-node, InfiniBand inter-node). Budget: a few weeks.</p>
+  <h3>📋 Scenario</h3>
+  <p>You are the lead ML engineer at a startup. Your task: <strong>train, align, and serve a 70B-parameter LLM</strong> for a customer-support chatbot grounded in the company's internal documentation. Your hardware: <strong>1024 H100 GPUs</strong> (128 nodes × 8 GPUs each, NVLink intra-node, InfiniBand inter-node). Budget: a few weeks.</p>
   <p>The questions below walk you through the whole pipeline. <em>Attempt every blank before opening the solution.</em></p>
 </section>
 
 <section class="card">
-  <h2>Part A â€” Pretraining design</h2>
+  <h2>Part A — Pretraining design</h2>
 
   <div class="exercise">
     <p><span class="ex-num">A1.</span>
@@ -58,22 +58,22 @@
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Tokens â‰ˆ 20 Ã— params.</div>
-    <div class="solution" hidden>20 Ã— 70B = <strong>1400 B</strong> tokens (= 1.4T).</div>
+    <div class="hint" hidden>Tokens ≈ 20 × params.</div>
+    <div class="solution" hidden>20 × 70B = <strong>1400 B</strong> tokens (= 1.4T).</div>
   </div>
 
   <div class="exercise">
     <p><span class="ex-num">A2.</span>
       <span class="topic-badge">L3</span>
-      Approximate training FLOPs needed: C â‰ˆ 6 Â· N Â· D = <input data-answer="5.88e23|5.9e23|6e23" data-tolerance="5e22"> (scientific notation).</p>
+      Approximate training FLOPs needed: C ≈ 6 · N · D = <input data-answer="5.88e23|5.9e23|6e23" data-tolerance="5e22"> (scientific notation).</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>6 Ã— 7e10 Ã— 1.4e12.</div>
-    <div class="solution" hidden>6 Â· 7e10 Â· 1.4e12 â‰ˆ <strong>5.88e23</strong> FLOPs (~0.6 yotta-FLOPs).</div>
+    <div class="hint" hidden>6 × 7e10 × 1.4e12.</div>
+    <div class="solution" hidden>6 · 7e10 · 1.4e12 ≈ <strong>5.88e23</strong> FLOPs (~0.6 yotta-FLOPs).</div>
   </div>
 
   <div class="exercise">
@@ -100,22 +100,22 @@
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>1024 / (8 Ã— 8).</div>
+    <div class="hint" hidden>1024 / (8 × 8).</div>
     <div class="solution" hidden>1024 / 64 = <strong>16</strong>. So 16-way DP wrapped with ZeRO-1 on top.</div>
   </div>
 
   <div class="exercise">
     <p><span class="ex-num">A5.</span>
       <span class="topic-badge">L5</span>
-      To reduce the pipeline bubble below 15% with p=8, you need at least m â‰ˆ <input data-answer="40" data-tolerance="3"> micro-batches.</p>
+      To reduce the pipeline bubble below 15% with p=8, you need at least m ≈ <input data-answer="40" data-tolerance="3"> micro-batches.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Solve (pâˆ’1)/(m+pâˆ’1) â‰¤ 0.15 with p=8.</div>
-    <div class="solution" hidden>7/(m+7) â‰¤ 0.15 â†’ m â‰¥ 7/0.15 âˆ’ 7 â‰ˆ <strong>40</strong>. Use 1F1B to keep activation memory in check.</div>
+    <div class="hint" hidden>Solve (p−1)/(m+p−1) ≤ 0.15 with p=8.</div>
+    <div class="solution" hidden>7/(m+7) ≤ 0.15 → m ≥ 7/0.15 − 7 ≈ <strong>40</strong>. Use 1F1B to keep activation memory in check.</div>
   </div>
 
   <div class="exercise">
@@ -134,7 +134,7 @@
 </section>
 
 <section class="card">
-  <h2>Part B â€” Post-training (alignment)</h2>
+  <h2>Part B — Post-training (alignment)</h2>
 
   <div class="exercise">
     <p><span class="ex-num">B1.</span>
@@ -167,7 +167,7 @@
   <div class="exercise">
     <p><span class="ex-num">B3.</span>
       <span class="topic-badge">L12</span>
-      During DPO, the model starts emitting "As an AI language modelâ€¦" for every answer. This is <input data-answer="reward hacking|hacking"> â€” the model is exploiting RM-style preferences in the data.</p>
+      During DPO, the model starts emitting "As an AI language model…" for every answer. This is <input data-answer="reward hacking|hacking"> — the model is exploiting RM-style preferences in the data.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -175,17 +175,17 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>Gaming the signal.</div>
-    <div class="solution" hidden>Reward <strong>hacking</strong>. Mitigate by curating preference data, lowering Î² (more KL pull), or filtering offending patterns.</div>
+    <div class="solution" hidden>Reward <strong>hacking</strong>. Mitigate by curating preference data, lowering β (more KL pull), or filtering offending patterns.</div>
   </div>
 </section>
 
 <section class="card">
-  <h2>Part C â€” Deployment with RAG</h2>
+  <h2>Part C — Deployment with RAG</h2>
 
   <div class="exercise">
     <p><span class="ex-num">C1.</span>
       <span class="topic-badge">L10</span>
-      The 5-stage RAG pipeline: chunk â†’ embed â†’ index â†’ <input data-answer="retrieve"> â†’ generate. (With a rerank step inserted after retrieve in production.)</p>
+      The 5-stage RAG pipeline: chunk → embed → index → <input data-answer="retrieve"> → generate. (With a rerank step inserted after retrieve in production.)</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -226,20 +226,20 @@
 </section>
 
 <section class="card">
-  <h2>Part D â€” Inference serving</h2>
+  <h2>Part D — Inference serving</h2>
 
   <div class="exercise">
     <p><span class="ex-num">D1.</span>
       <span class="topic-badge">L7</span>
-      Your 70B model has 80 layers, 8 KV heads (GQA), d_head=128. KV cache per request at 8k context in FP16 = <input data-answer="2.1|2.15|2.0" data-tolerance="0.2"> GB. (Hint: 2Â·LÂ·H_kvÂ·d_hÂ·NÂ·bytes.)</p>
+      Your 70B model has 80 layers, 8 KV heads (GQA), d_head=128. KV cache per request at 8k context in FP16 = <input data-answer="2.1|2.15|2.0" data-tolerance="0.2"> GB. (Hint: 2·L·H_kv·d_h·N·bytes.)</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>2 Â· 80 Â· 8 Â· 128 Â· 8192 Â· 2 bytes.</div>
-    <div class="solution" hidden>2Â·80Â·8Â·128Â·8192Â·2 = 2,147,483,648 bytes = <strong>2.0 GiB</strong> per request. With batch 16 â†’ 32 GB, half of an H100.</div>
+    <div class="hint" hidden>2 · 80 · 8 · 128 · 8192 · 2 bytes.</div>
+    <div class="solution" hidden>2·80·8·128·8192·2 = 2,147,483,648 bytes = <strong>2.0 GiB</strong> per request. With batch 16 → 32 GB, half of an H100.</div>
   </div>
 
   <div class="exercise">
@@ -295,13 +295,13 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>Draft + verify.</div>
-    <div class="solution" hidden><strong>Speculative</strong> decoding. Speedup â‰ˆ accepted_per_step.</div>
+    <div class="solution" hidden><strong>Speculative</strong> decoding. Speedup ≈ accepted_per_step.</div>
   </div>
 
   <div class="exercise">
     <p><span class="ex-num">D6.</span>
       <span class="topic-badge">L7</span><span class="topic-badge">L8</span>
-      Prefill is compute-bound while decode is memory-bound, so you put them on separate GPU pools and ship KV cache between them â€” this is called <input data-answer="disaggregated|disaggregation"> serving.</p>
+      Prefill is compute-bound while decode is memory-bound, so you put them on separate GPU pools and ship KV cache between them — this is called <input data-answer="disaggregated|disaggregation"> serving.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -314,7 +314,7 @@
 </section>
 
 <section class="card">
-  <h2>Part E â€” Quality &amp; evaluation</h2>
+  <h2>Part E — Quality &amp; evaluation</h2>
 
   <div class="exercise">
     <p><span class="ex-num">E1.</span>
@@ -333,7 +333,7 @@
   <div class="exercise">
     <p><span class="ex-num">E2.</span>
       <span class="topic-badge">L12</span>
-      You evaluate chat quality using <input data-answer="MT-Bench|MT Bench|mt-bench|mt bench"> (judged by GPT-4) and Chatbot Arena (human Elo). You note that your judge model rates the left response higher consistently â€” this is <input data-answer="position bias|position"> bias.</p>
+      You evaluate chat quality using <input data-answer="MT-Bench|MT Bench|mt-bench|mt bench"> (judged by GPT-4) and Chatbot Arena (human Elo). You note that your judge model rates the left response higher consistently — this is <input data-answer="position bias|position"> bias.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -360,8 +360,8 @@
 </section>
 
 <section class="card summary-box">
-  <h2>ðŸ Synthesis</h2>
-  <p>If you completed Parts Aâ€“E, you have just walked end-to-end through a real production LLM system â€” touching every lecture:</p>
+  <h2>🏁 Synthesis</h2>
+  <p>If you completed Parts A–E, you have just walked end-to-end through a real production LLM system — touching every lecture:</p>
   <ul>
     <li><strong>Training:</strong> Chinchilla (L3), 3D parallelism + ZeRO (L5), NCCL (L4), gradient checkpointing (L2).</li>
     <li><strong>Alignment:</strong> LoRA (L11), DPO + reward hacking (L12).</li>
@@ -369,12 +369,12 @@
     <li><strong>Serving:</strong> KV cache (L7), PagedAttention + continuous batching + AWQ + speculative + disaggregation (L8).</li>
     <li><strong>Quality:</strong> self-consistency (L9/10), MT-Bench + position bias + contamination (L12).</li>
   </ul>
-  <p>If any blank felt confusing, revisit the linked lesson â€” that is your weak spot for the exam.</p>
+  <p>If any blank felt confusing, revisit the linked lesson — that is your weak spot for the exam.</p>
 </section>
 
 <div class="nav-bottom">
-  <a href="12-rlhf-eval.html">â† Prev</a>
-  <a href="../index.html">Back to revision plan â†’</a>
+  <a href="12-rlhf-eval.html">← Prev</a>
+  <a href="../index.html">Back to revision plan →</a>
 </div>
 
 </div>

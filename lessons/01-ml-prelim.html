@@ -1,20 +1,20 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Lesson 1 â€” ML Preliminaries</title>
+<title>Lesson 1 — ML Preliminaries</title>
 <link rel="stylesheet" href="_shared.css">
 </head>
 <body>
 <div class="container">
 
 <div class="topbar">
-  <a href="../index.html">â† Back to revision plan</a>
-  <a href="02-sgd-autodiff.html">Next: SGD &amp; Autodiff â†’</a>
+  <a href="../index.html">← Back to revision plan</a>
+  <a href="02-sgd-autodiff.html">Next: SGD &amp; Autodiff →</a>
 </div>
 
 <header class="lesson-header">
-  <span class="lesson-tag">Lesson 1 Â· Foundation</span>
+  <span class="lesson-tag">Lesson 1 · Foundation</span>
   <h1>Machine Learning Preliminaries</h1>
   <div class="prereqs"><strong>Prerequisites</strong>
     <ul>
@@ -26,7 +26,7 @@
     <ul>
       <li>Define <em>features</em>, <em>labels</em>, <em>parameters</em>, and explain what "training" mechanically means.</li>
       <li>Distinguish supervised vs unsupervised learning and pick the right loss function for regression vs classification.</li>
-      <li>Diagnose overfitting/underfitting using the biasâ€“variance trade-off.</li>
+      <li>Diagnose overfitting/underfitting using the bias–variance trade-off.</li>
       <li>Compute MSE and cross-entropy loss by hand for tiny examples.</li>
     </ul>
   </div>
@@ -36,33 +36,33 @@
   <h2>1. Concepts</h2>
 
   <h3>What is a model?</h3>
-  <p>A model is a function <code>f(x; Î¸)</code> that maps an input <em>x</em> (features) to an output <em>Å·</em> (prediction), parameterised by weights <em>Î¸</em>. "Training" = automatically choosing Î¸ so that Å· is close to the true label <em>y</em> on training data.</p>
+  <p>A model is a function <code>f(x; θ)</code> that maps an input <em>x</em> (features) to an output <em>ŷ</em> (prediction), parameterised by weights <em>θ</em>. "Training" = automatically choosing θ so that ŷ is close to the true label <em>y</em> on training data.</p>
 
   <h3>Supervised vs unsupervised</h3>
   <ul>
     <li><strong>Supervised:</strong> dataset is pairs <em>(x, y)</em>. Goal: predict y from x. Examples: spam detection, image classification, next-token prediction in LLMs.</li>
     <li><strong>Unsupervised:</strong> only x, no labels. Goal: discover structure (clustering, dimensionality reduction).</li>
   </ul>
-  <div class="example"><strong>Real-world:</strong> An LLM is technically <em>self-supervised</em> â€” labels (the next token) are generated automatically from the input text, so it scales to trillions of tokens without manual labelling.</div>
+  <div class="example"><strong>Real-world:</strong> An LLM is technically <em>self-supervised</em> — labels (the next token) are generated automatically from the input text, so it scales to trillions of tokens without manual labelling.</div>
 
   <h3>Loss functions</h3>
   <p>A loss measures how wrong a prediction is. Lower = better.</p>
   <p><strong>Mean Squared Error (regression):</strong></p>
-  <span class="formula">L_MSE = (1/N) Â· Î£áµ¢ (yáµ¢ âˆ’ Å·áµ¢)Â²</span>
+  <span class="formula">L_MSE = (1/N) · Σᵢ (yᵢ − ŷᵢ)²</span>
   <p><strong>Cross-entropy (classification with C classes):</strong></p>
-  <span class="formula">L_CE = âˆ’ Î£_c y_c Â· log(Å·_c)</span>
-  <p>For one-hot labels, only the term for the true class survives: <code>L = âˆ’log(Å·_true)</code>. If the model is confident and right (Å· â‰ˆ 1), loss â†’ 0; if confident and wrong, loss â†’ âˆž.</p>
+  <span class="formula">L_CE = − Σ_c y_c · log(ŷ_c)</span>
+  <p>For one-hot labels, only the term for the true class survives: <code>L = −log(ŷ_true)</code>. If the model is confident and right (ŷ ≈ 1), loss → 0; if confident and wrong, loss → ∞.</p>
 
   <h3>Train / validation / test split</h3>
-  <p>Typically ~80 / 10 / 10. Train fits Î¸; validation picks hyperparameters; test gives the final unbiased estimate. <strong>Never tune on the test set.</strong></p>
+  <p>Typically ~80 / 10 / 10. Train fits θ; validation picks hyperparameters; test gives the final unbiased estimate. <strong>Never tune on the test set.</strong></p>
 
-  <h3>Biasâ€“variance &amp; over/underfitting</h3>
+  <h3>Bias–variance &amp; over/underfitting</h3>
   <ul>
-    <li><strong>Underfit (high bias):</strong> model too simple â†’ bad on train AND test.</li>
-    <li><strong>Overfit (high variance):</strong> model memorises noise â†’ great on train, bad on test.</li>
+    <li><strong>Underfit (high bias):</strong> model too simple → bad on train AND test.</li>
+    <li><strong>Overfit (high variance):</strong> model memorises noise → great on train, bad on test.</li>
     <li><strong>Fixes:</strong> more data, regularisation (L2/dropout), simpler model, early stopping.</li>
   </ul>
-  <div class="example"><strong>Real-world:</strong> A 70B-parameter LLM trained on only 1M tokens would massively overfit. Chinchilla scaling laws (W4) say tokens should be â‰ˆ 20Ã— params to balance compute vs overfitting.</div>
+  <div class="example"><strong>Real-world:</strong> A 70B-parameter LLM trained on only 1M tokens would massively overfit. Chinchilla scaling laws (W4) say tokens should be ≈ 20× params to balance compute vs overfitting.</div>
 </section>
 
 <section class="card">
@@ -74,12 +74,12 @@
     <p>Classic overfitting. First try: more data (or data augmentation), then regularisation (weight decay, dropout), then a smaller / less capable model, then early stopping.</p>
   </details>
   <details class="socratic"><summary>Why is cross-entropy preferred over MSE for classification?</summary>
-    <p>Cross-entropy gives a much steeper gradient when the model is confidently wrong, so it learns faster. MSE on probabilities saturates (gradient â†’ 0) when predictions are far from labels, leading to slow training.</p>
+    <p>Cross-entropy gives a much steeper gradient when the model is confidently wrong, so it learns faster. MSE on probabilities saturates (gradient → 0) when predictions are far from labels, leading to slow training.</p>
   </details>
 </section>
 
 <section class="card">
-  <h2>3. Exercises â€” fill in the blanks</h2>
+  <h2>3. Exercises — fill in the blanks</h2>
   <p style="color:var(--muted);font-size:13px">Type your answer, click <em>Check</em>. Use <em>Hint</em> if stuck; <em>Show solution</em> unlocks only after you attempt.</p>
 
   <div class="exercise" data-id="1">
@@ -95,27 +95,27 @@
   </div>
 
   <div class="exercise" data-id="2">
-    <p><span class="ex-num">Q2.</span> The true labels are <code>y = [3, 5]</code> and predictions are <code>Å· = [2, 6]</code>. MSE = <input data-answer="1" data-tolerance="0.01"></p>
+    <p><span class="ex-num">Q2.</span> The true labels are <code>y = [3, 5]</code> and predictions are <code>ŷ = [2, 6]</code>. MSE = <input data-answer="1" data-tolerance="0.01"></p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Compute (yâˆ’Å·)Â² for each example, then average.</div>
-    <div class="solution" hidden>(3âˆ’2)Â² + (5âˆ’6)Â² = 1 + 1 = 2. Average over N=2 â†’ <strong>1</strong>.</div>
+    <div class="hint" hidden>Compute (y−ŷ)² for each example, then average.</div>
+    <div class="solution" hidden>(3−2)² + (5−6)² = 1 + 1 = 2. Average over N=2 → <strong>1</strong>.</div>
   </div>
 
   <div class="exercise" data-id="3">
-    <p><span class="ex-num">Q3.</span> A classifier predicts probability <code>Å· = 0.1</code> for the true class. Cross-entropy = âˆ’log(0.1) â‰ˆ <input data-answer="2.303" data-tolerance="0.05"> (use natural log).</p>
+    <p><span class="ex-num">Q3.</span> A classifier predicts probability <code>ŷ = 0.1</code> for the true class. Cross-entropy = −log(0.1) ≈ <input data-answer="2.303" data-tolerance="0.05"> (use natural log).</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>ln(10) â‰ˆ 2.303, and âˆ’ln(0.1) = ln(10).</div>
-    <div class="solution" hidden>âˆ’ln(0.1) = ln(10) â‰ˆ <strong>2.303</strong>. The model is very wrong (assigned low prob to truth), so loss is large.</div>
+    <div class="hint" hidden>ln(10) ≈ 2.303, and −ln(0.1) = ln(10).</div>
+    <div class="solution" hidden>−ln(0.1) = ln(10) ≈ <strong>2.303</strong>. The model is very wrong (assigned low prob to truth), so loss is large.</div>
   </div>
 
   <div class="exercise" data-id="4">
@@ -126,7 +126,7 @@
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Huge gap between train and val â†’ high variance.</div>
+    <div class="hint" hidden>Huge gap between train and val → high variance.</div>
     <div class="solution" hidden><strong>Overfitting</strong> (high variance). Memorised training data but doesn't generalise.</div>
   </div>
 
@@ -170,17 +170,17 @@
 <section class="card summary-box">
   <h2>Key Takeaways</h2>
   <ul>
-    <li>Training = minimise a loss over Î¸. Loss tells you "how wrong".</li>
+    <li>Training = minimise a loss over θ. Loss tells you "how wrong".</li>
     <li>MSE for regression, cross-entropy for classification.</li>
     <li>Always split data: train / val / test. Test set is sacred.</li>
-    <li>Overfit = big trainâ€“val gap; underfit = both bad.</li>
-    <li>LLM pretraining is self-supervised â†’ unlocks internet-scale data.</li>
+    <li>Overfit = big train–val gap; underfit = both bad.</li>
+    <li>LLM pretraining is self-supervised → unlocks internet-scale data.</li>
   </ul>
 </section>
 
 <div class="nav-bottom">
-  <a href="../index.html">â† Plan</a>
-  <a href="02-sgd-autodiff.html">Next: SGD &amp; Autodiff â†’</a>
+  <a href="../index.html">← Plan</a>
+  <a href="02-sgd-autodiff.html">Next: SGD &amp; Autodiff →</a>
 </div>
 
 </div>
