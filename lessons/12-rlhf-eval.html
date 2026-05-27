@@ -39,18 +39,18 @@
   <p>Fine-tune on curated (prompt, ideal-response) pairs with the standard next-token loss. Teaches format and instruction following. Often uses LoRA.</p>
 
   <h3>Stage 2 — Reward Model (RM)</h3>
-  <p>Collect pairs of responses (a, b) for the same prompt with a human preference label (a ≻ b). Train a model <code>r_θ(prompt, response)</code> so that <code>r_θ(prompt, a) &gt; r_θ(prompt, b)</code>, using the Bradley–Terry loss:</p>
-  <span class="formula">L_RM = −log σ(r(p, a) − r(p, b))</span>
+  <p>Collect pairs of responses \((a,b)\) for the same prompt with a human preference label \(a\succ b\). Train a model \(r_\theta(\text{prompt},\text{response})\) so that \(r_\theta(\text{prompt},a)>r_\theta(\text{prompt},b)\), using the Bradley–Terry loss:</p>
+  <span class="formula">\[L_{\mathrm{RM}}=-\log\sigma\left(r(p,a)-r(p,b)\right)\]</span>
   <p>r is usually the SFT model with a scalar reward head.</p>
 
   <h3>Stage 3 — PPO (RLHF)</h3>
   <p>Use the RM as the reward signal to RL-fine-tune the SFT model. Proximal Policy Optimization keeps the policy near the original (KL penalty) to avoid mode collapse and reward hacking.</p>
-  <span class="formula">objective = E[r(p, y)] − β · KL(π_θ ‖ π_ref)</span>
+  <span class="formula">\[\max_{\pi_\theta}\;\mathbb{E}\left[r(p,y)\right]-\beta\,\mathrm{KL}\left(\pi_\theta\,\Vert\,\pi_{\mathrm{ref}}\right)\]</span>
   <p>Trains 4 networks simultaneously (policy, ref, RM, value) → expensive and unstable.</p>
 
   <h3>DPO — Direct Preference Optimization</h3>
   <p>Skip the explicit RM and PPO. Show that the optimal RLHF policy has a closed-form relation to the reference, and rewrite the preference loss directly on the policy:</p>
-  <span class="formula">L_DPO = −log σ( β · [log π(a|p)/π_ref(a|p) − log π(b|p)/π_ref(b|p)] )</span>
+  <span class="formula">\[L_{\mathrm{DPO}}=-\log\sigma\left(\beta\left[\log\frac{\pi_\theta(a\mid p)}{\pi_{\mathrm{ref}}(a\mid p)}-\log\frac{\pi_\theta(b\mid p)}{\pi_{\mathrm{ref}}(b\mid p)}\right]\right)\]</span>
   <p>Just a classification loss on preference pairs. Much simpler and more stable than PPO, similar or better quality.</p>
 
   <h3>GRPO (DeepSeek-R1)</h3>
@@ -73,7 +73,7 @@
   </ul>
 
   <h3>pass@k formula</h3>
-  <span class="formula">pass@k = 1 − C(n−c, k) / C(n, k)</span>
+  <span class="formula">\[\operatorname{pass@}k=1-\frac{\binom{n-c}{k}}{\binom{n}{k}}\]</span>
   <p>where n = #samples generated, c = #correct.</p>
 
   <h3>LLM-as-judge pitfalls</h3>

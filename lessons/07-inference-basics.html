@@ -41,7 +41,7 @@
   <h3>KV cache: why and what</h3>
   <p>Naively, generating token T+1 would re-compute attention over all T previous tokens (and recompute their K/V). Instead, we <strong>cache K and V</strong> for every past token at every layer. At step T+1, only one new (Q, K, V) triple is computed; new K, V are appended; attention runs against the cache.</p>
   <p>KV cache memory size for one request:</p>
-  <span class="formula">M_KV = 2 · n_layers · n_kv_heads · d_head · seq_len · bytes_per_elt</span>
+  <span class="formula">\[M_{\mathrm{KV}}=2\cdot n_{\mathrm{layers}}\cdot n_{\mathrm{kv\ heads}}\cdot d_{\mathrm{head}}\cdot L\cdot\operatorname{bytes}_{\mathrm{elt}}\]</span>
   <p>The factor 2 = K and V. Multiply by batch size for concurrent requests.</p>
 
   <div class="example"><strong>Real-world:</strong> LLaMA-2-7B has 32 layers, 32 KV heads, d_head=128. At 4096 ctx, FP16 (2 bytes): 2·32·32·128·4096·2 = ~2.1 GB per request. At batch=32, that's 67 GB — bigger than the 14 GB of weights!</div>
@@ -51,7 +51,7 @@
     <li><strong>Greedy:</strong> always pick argmax token. Deterministic, often dull/repetitive.</li>
     <li><strong>Temperature T:</strong> scale logits by 1/T before softmax. T&lt;1 sharpens (more deterministic), T&gt;1 flattens (more diverse). T=0 ≡ greedy.</li>
     <li><strong>Top-k:</strong> keep only the k highest-probability tokens, renormalise, sample.</li>
-    <li><strong>Top-p (nucleus):</strong> keep the smallest set of tokens whose cumulative prob ≥ p (e.g., 0.9), renormalise, sample. Adapts the cut-off per step.</li>
+    <li><strong>Top-p (nucleus):</strong> keep the smallest set of tokens whose cumulative prob \(\ge p\) (e.g., 0.9), renormalise, sample. Adapts the cut-off per step.</li>
   </ul>
 
   <h3>Latency vs throughput</h3>
@@ -111,7 +111,7 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>2 (K&amp;V) · 32 · 8 · 128 · 2048 · 2 bytes, divide by 1024³.</div>
-    <div class="solution" hidden>2·32·8·128·2048·2 = 268,435,456 bytes ≈ <strong>0.25 GiB</strong> (or 0.27 GB decimal). Notice how grouped-query attention (small n_kv_heads) is a HUGE win.</div>
+    <div class="solution" hidden>\(2\cdot32\cdot8\cdot128\cdot2048\cdot2=268{,}435{,}456\) bytes \(\approx\) <strong>0.25 GiB</strong> (or 0.27 GB decimal). Notice how grouped-query attention (small \(n_{\mathrm{kv\ heads}}\)) is a HUGE win.</div>
   </div>
 
   <div class="exercise">
@@ -134,7 +134,7 @@
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Smallest set whose cumulative probability ≥ p.</div>
+    <div class="hint" hidden>Smallest set whose cumulative probability \(\ge p\).</div>
     <div class="solution" hidden>top-<strong>p</strong> (a.k.a. nucleus) sampling.</div>
   </div>
 

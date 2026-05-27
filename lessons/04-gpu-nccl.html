@@ -42,8 +42,8 @@
 
   <h3>Compute-bound vs memory-bound</h3>
   <p><strong>Arithmetic intensity</strong> = FLOPs done per byte loaded from HBM.</p>
-  <span class="formula">AI = FLOPs / bytes_moved</span>
-  <p>Compare to the GPU's compute-to-bandwidth ratio (the "ridge" of the roofline). On an A100, peak FP16 ≈ 312 TFLOPs and HBM BW ≈ 2 TB/s → ridge ≈ 156 FLOPs/byte.</p>
+  <span class="formula">\[\operatorname{AI}=\frac{\operatorname{FLOPs}}{\operatorname{bytes\ moved}}\]</span>
+  <p>Compare to the GPU's compute-to-bandwidth ratio (the "ridge" of the roofline). On an A100, peak FP16 \(\approx312\) TFLOPs and HBM BW \(\approx2\) TB/s → ridge \(\approx156\) FLOPs/byte.</p>
   <ul>
     <li>If AI &lt; ridge → <strong>memory-bound</strong> (kernel waits on HBM).</li>
     <li>If AI &gt; ridge → <strong>compute-bound</strong> (saturating tensor cores).</li>
@@ -67,14 +67,14 @@
 
   <h3>Ring-AllReduce cost</h3>
   <p>For N GPUs and message size M bytes on links of bandwidth BW, ring-AllReduce transmits ~2M(N−1)/N per GPU:</p>
-  <span class="formula">T_AllReduce ≈ 2 · (N−1)/N · M / BW</span>
+  <span class="formula">\[T_{\mathrm{AllReduce}}\approx2\cdot\frac{N-1}{N}\cdot\frac{M}{\operatorname{BW}}\]</span>
   <p>Key insight: cost is <strong>independent of N</strong> for large N (factor (N−1)/N → 1). That's why ring-AllReduce scales.</p>
 
   <h3>Interconnect hierarchy</h3>
   <ul>
     <li><strong>NVLink</strong> (intra-node, GPU↔GPU): 600–900 GB/s. Fastest.</li>
     <li><strong>PCIe Gen4/5</strong> (CPU↔GPU, or older inter-GPU): ~32–64 GB/s.</li>
-    <li><strong>InfiniBand</strong> (inter-node, NIC↔NIC): 200–400 Gb/s ≈ 25–50 GB/s.</li>
+    <li><strong>InfiniBand</strong> (inter-node, NIC↔NIC): 200–400 Gb/s \(\approx\) 25–50 GB/s.</li>
   </ul>
   <p>Topology matters: parallelism strategies are chosen so the heaviest comms stay on the fastest links (NVLink), and rare comms can cross InfiniBand.</p>
 </section>
@@ -108,7 +108,7 @@
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q2.</span> On an A100 (peak ≈ 312 TFLOPs FP16, HBM ≈ 2 TB/s), the ridge intensity is approximately <input data-answer="156" data-tolerance="10"> FLOPs/byte.</p>
+    <p><span class="ex-num">Q2.</span> On an A100 (peak \(\approx312\) TFLOPs FP16, HBM \(\approx2\) TB/s), the ridge intensity is approximately <input data-answer="156" data-tolerance="10"> FLOPs/byte.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -116,7 +116,7 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>Ridge = peak FLOPs / peak BW.</div>
-    <div class="solution" hidden>312e12 / 2e12 ≈ <strong>156</strong> FLOPs/byte.</div>
+    <div class="solution" hidden>\(312\mathrm{e}12/2\mathrm{e}12\approx\) <strong>156</strong> FLOPs/byte.</div>
   </div>
 
   <div class="exercise">
@@ -144,7 +144,7 @@
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q5.</span> 8 GPUs, message size M = 1 GB, NVLink bandwidth 300 GB/s. Approximate ring-AllReduce time ≈ <input data-answer="5.8" data-tolerance="0.5"> ms. (Use T ≈ 2(N−1)/N · M/BW.)</p>
+    <p><span class="ex-num">Q5.</span> 8 GPUs, message size \(M=1\) GB, NVLink bandwidth 300 GB/s. Approximate ring-AllReduce time \(\approx\) <input data-answer="5.8" data-tolerance="0.5"> ms. (Use \(T\approx2(N-1)M/(N\cdot\mathrm{BW})\).)</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -152,7 +152,7 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>2·(7/8) = 1.75. Then 1.75 GB / 300 GB/s.</div>
-    <div class="solution" hidden>1.75 / 300 s ≈ 0.00583 s = <strong>5.83 ms</strong>.</div>
+    <div class="solution" hidden>\(1.75/300\text{ s}\approx0.00583\text{ s}=\) <strong>5.83 ms</strong>.</div>
   </div>
 
   <div class="exercise">
@@ -199,7 +199,7 @@
     <li>Roofline: AI vs ridge tells you memory- or compute-bound.</li>
     <li>Training matmuls = compute-bound; decoding = memory-bound.</li>
     <li>4 collectives: Broadcast, AllReduce, AllGather, ReduceScatter.</li>
-    <li>Ring-AllReduce cost ≈ 2(N−1)/N · M / BW — almost constant in N.</li>
+    <li>Ring-AllReduce cost \(\approx2(N-1)M/(N\cdot\mathrm{BW})\) — almost constant in \(N\).</li>
     <li>NVLink &gt; PCIe &gt; InfiniBand for bandwidth; place heaviest comms on the fastest link.</li>
   </ul>
 </section>

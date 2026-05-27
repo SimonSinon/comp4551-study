@@ -40,37 +40,35 @@
 
   <h3>Self-attention (the heart of transformers)</h3>
   <p>For each token, ask "which other tokens are relevant?" by computing similarities, then take a weighted sum of their values.</p>
-  <span class="formula">Attention(Q, K, V) = softmax(Q Kᵀ / √d_k) · V</span>
-  <p>Shapes for a batch of B sequences of length N, embedding dim d, h heads, head dim d_h = d/h:</p>
+  <span class="formula">\[\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\left(\frac{QK^{T}}{\sqrt{d_k}}\right)V\]</span>
+  <p>Shapes for a batch of \(B\) sequences of length \(N\), embedding dim \(d\), \(h\) heads, head dim \(d_h=d/h\):</p>
   <ul>
-    <li>Input: <code>X ∈ ℝ^{B×N×d}</code></li>
-    <li>Q, K, V each: <code>ℝ^{B×h×N×d_h}</code> (after splitting heads)</li>
-    <li>Attention matrix QKᵀ/√d_h: <code>ℝ^{B×h×N×N}</code> ← <strong>this is the O(N²) cost</strong></li>
-    <li>Output: concat heads back to <code>ℝ^{B×N×d}</code></li>
+    <li>Input: \(X\in\mathbb{R}^{B\times N\times d}\)</li>
+    <li>\(Q,K,V\) each: \(\mathbb{R}^{B\times h\times N\times d_h}\) (after splitting heads)</li>
+    <li>Attention matrix \(QK^T/\sqrt{d_h}\): \(\mathbb{R}^{B\times h\times N\times N}\) ← <strong>this is the \(O(N^2)\) cost</strong></li>
+    <li>Output: concat heads back to \(\mathbb{R}^{B\times N\times d}\)</li>
   </ul>
   <p>In <strong>causal</strong> (decoder) attention, a mask zeroes positions where j &gt; i so a token can't see the future.</p>
 
   <h3>The transformer block</h3>
   <p>Modern (LLaMA-style) decoder block, with pre-LayerNorm and residuals:</p>
-  <span class="formula">x ← x + MHA(LN(x))
-x ← x + FFN(LN(x))
-FFN(x) = W₂ · SiLU(W₁ x)   (often gated: SwiGLU)</span>
+  <span class="formula">\[\begin{aligned}x&\leftarrow x+\operatorname{MHA}(\operatorname{LN}(x)),\\x&\leftarrow x+\operatorname{FFN}(\operatorname{LN}(x)),\\\operatorname{FFN}(x)&=W_2\operatorname{SiLU}(W_1x)\quad\text{(often gated: SwiGLU)}\end{aligned}\]</span>
   <p>The FFN typically expands to 4×d (or 8/3·d for gated), then projects back. Stack N such blocks → final LayerNorm → linear "unembedding" → softmax over vocabulary.</p>
 
   <h3>Causal LM pretraining objective</h3>
   <p>Given a sequence of tokens, predict the next token at every position. Loss = average cross-entropy over all positions. This is self-supervised — every token is both an input and a label.</p>
 
   <h3>Chinchilla scaling law</h3>
-  <p>For a fixed compute budget C (in FLOPs), the loss-optimal allocation between model parameters N and training tokens D satisfies <strong>D ≈ 20 × N</strong>. A 70B model wants ~1.4T tokens, not 300B.</p>
-  <p>Approximate training FLOPs: <code>C ≈ 6 · N · D</code> (factor 6 = forward + backward + optimizer).</p>
+  <p>For a fixed compute budget \(C\) (in FLOPs), the loss-optimal allocation between model parameters \(N\) and training tokens \(D\) satisfies <strong>\(D\approx20N\)</strong>. A 70B model wants ~1.4T tokens, not 300B.</p>
+  <p>Approximate training FLOPs: \(C\approx6ND\) (factor 6 = forward + backward + optimizer).</p>
 
   <div class="example"><strong>Real-world:</strong> GPT-3 was 175B params on ~300B tokens (under-trained by Chinchilla rules). LLaMA-2 70B trained on 2T tokens, demonstrating Chinchilla-style allocation pays off.</div>
 </section>
 
 <section class="card">
   <h2>2. Socratic check</h2>
-  <details class="socratic"><summary>Why divide by √d_k inside the softmax?</summary>
-    <p>Without it, the dot products grow with d_k, pushing softmax into saturation (tiny gradients). Dividing by √d_k keeps variances ≈ 1, so the softmax stays in a useful range.</p>
+  <details class="socratic"><summary>Why divide by \(\sqrt{d_k}\) inside the softmax?</summary>
+    <p>Without it, the dot products grow with \(d_k\), pushing softmax into saturation (tiny gradients). Dividing by \(\sqrt{d_k}\) keeps variances \(\approx1\), so the softmax stays in a useful range.</p>
   </details>
   <details class="socratic"><summary>Why multiple attention heads instead of one big head?</summary>
     <p>Different heads can learn different relations (syntax, coreference, position) in parallel. Splitting into heads is essentially free since the total dimension is unchanged.</p>
@@ -99,19 +97,19 @@ FFN(x) = W₂ · SiLU(W₁ x)   (often gated: SwiGLU)</span>
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q2.</span> Attention matrix shape for one head with N=1024 tokens: (N × <input data-answer="1024">), giving O(N²) memory.</p>
+    <p><span class="ex-num">Q2.</span> Attention matrix shape for one head with \(N=1024\) tokens: \((N\times\) <input data-answer="1024">\()\), giving \(O(N^2)\) memory.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Q has N rows; Kᵀ has N columns.</div>
-    <div class="solution" hidden>(1024 × <strong>1024</strong>). This O(N²) blow-up motivates FlashAttention (Lesson 8).</div>
+    <div class="hint" hidden>\(Q\) has \(N\) rows; \(K^T\) has \(N\) columns.</div>
+    <div class="solution" hidden>\(1024\times\)<strong>1024</strong>. This \(O(N^2)\) blow-up motivates FlashAttention (Lesson 8).</div>
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q3.</span> The factor in the attention denominator <code>1/√d_k</code> exists to prevent softmax <input data-answer="saturation|saturating">.</p>
+    <p><span class="ex-num">Q3.</span> The factor in the attention denominator \(1/\sqrt{d_k}\) exists to prevent softmax <input data-answer="saturation|saturating">.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -142,20 +140,20 @@ FFN(x) = W₂ · SiLU(W₁ x)   (often gated: SwiGLU)</span>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Tokens ≈ 20 × params.</div>
+    <div class="hint" hidden>Tokens \(\approx20\times\) params.</div>
     <div class="solution" hidden>20 × 13B = <strong>260B</strong> tokens.</div>
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q6.</span> Approximate training FLOPs for a 7B model on 1T tokens: C ≈ 6 · N · D = <input data-answer="4.2e22|4.2E22|42e21" data-tolerance="2e21"> FLOPs (use scientific notation, e.g. 1.2e22).</p>
+    <p><span class="ex-num">Q6.</span> Approximate training FLOPs for a 7B model on 1T tokens: \(C\approx6ND=\) <input data-answer="4.2e22|4.2E22|42e21" data-tolerance="2e21"> FLOPs (use scientific notation, e.g. 1.2e22).</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>6 × 7×10⁹ × 1×10¹² = ?</div>
-    <div class="solution" hidden>6 × 7e9 × 1e12 = <strong>4.2e22</strong> FLOPs (~42 zetta-FLOPs).</div>
+    <div class="hint" hidden>\(6\times7\times10^9\times1\times10^{12}=?\)</div>
+    <div class="solution" hidden>\(6\times7\mathrm{e}9\times1\mathrm{e}12=\) <strong>4.2e22</strong> FLOPs (~42 zetta-FLOPs).</div>
   </div>
 
   <div class="exercise">
@@ -178,18 +176,18 @@ FFN(x) = W₂ · SiLU(W₁ x)   (often gated: SwiGLU)</span>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>An upper-triangular −∞ mask added before softmax.</div>
-    <div class="solution" hidden><strong>Causal</strong> (or "look-ahead") mask. Sets future-position scores to −∞ → softmax zero.</div>
+    <div class="hint" hidden>An upper-triangular \(-\infty\) mask added before softmax.</div>
+    <div class="solution" hidden><strong>Causal</strong> (or "look-ahead") mask. Sets future-position scores to \(-\infty\) → softmax zero.</div>
   </div>
 </section>
 
 <section class="card summary-box">
   <h2>Key Takeaways</h2>
   <ul>
-    <li>Self-attention: softmax(QKᵀ/√d_k)V — O(N²) in sequence length.</li>
+    <li>Self-attention: \(\operatorname{softmax}(QK^T/\sqrt{d_k})V\) — \(O(N^2)\) in sequence length.</li>
     <li>Decoder block = LN → MHA → +residual → LN → FFN → +residual.</li>
     <li>Pretrain with next-token CE loss on internet-scale text.</li>
-    <li>Chinchilla: tokens ≈ 20 × params; total compute ≈ 6ND.</li>
+    <li>Chinchilla: tokens \(\approx20\times\) params; total compute \(\approx6ND\).</li>
     <li>RoPE is today's standard positional scheme.</li>
   </ul>
 </section>

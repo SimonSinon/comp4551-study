@@ -58,22 +58,22 @@
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Tokens ≈ 20 × params.</div>
-    <div class="solution" hidden>20 × 70B = <strong>1400 B</strong> tokens (= 1.4T).</div>
+    <div class="hint" hidden>Tokens \(\approx20\times\) params.</div>
+    <div class="solution" hidden>\(20\times70\mathrm{B}=\) <strong>1400 B</strong> tokens (= 1.4T).</div>
   </div>
 
   <div class="exercise">
     <p><span class="ex-num">A2.</span>
       <span class="topic-badge">L3</span>
-      Approximate training FLOPs needed: C ≈ 6 · N · D = <input data-answer="5.88e23|5.9e23|6e23" data-tolerance="5e22"> (scientific notation).</p>
+      Approximate training FLOPs needed: \(C\approx6ND=\) <input data-answer="5.88e23|5.9e23|6e23" data-tolerance="5e22"> (scientific notation).</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>6 × 7e10 × 1.4e12.</div>
-    <div class="solution" hidden>6 · 7e10 · 1.4e12 ≈ <strong>5.88e23</strong> FLOPs (~0.6 yotta-FLOPs).</div>
+    <div class="hint" hidden>\(6\times7\mathrm{e}10\times1.4\mathrm{e}12\).</div>
+    <div class="solution" hidden>\(6\cdot7\mathrm{e}10\cdot1.4\mathrm{e}12\approx\) <strong>5.88e23</strong> FLOPs (~0.6 yotta-FLOPs).</div>
   </div>
 
   <div class="exercise">
@@ -100,22 +100,22 @@
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>1024 / (8 × 8).</div>
-    <div class="solution" hidden>1024 / 64 = <strong>16</strong>. So 16-way DP wrapped with ZeRO-1 on top.</div>
+    <div class="hint" hidden>\(1024/(8\times8)\).</div>
+    <div class="solution" hidden>\(1024/64=\) <strong>16</strong>. So 16-way DP wrapped with ZeRO-1 on top.</div>
   </div>
 
   <div class="exercise">
     <p><span class="ex-num">A5.</span>
       <span class="topic-badge">L5</span>
-      To reduce the pipeline bubble below 15% with p=8, you need at least m ≈ <input data-answer="40" data-tolerance="3"> micro-batches.</p>
+      To reduce the pipeline bubble below 15% with \(p=8\), you need at least \(m\approx\) <input data-answer="40" data-tolerance="3"> micro-batches.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Solve (p−1)/(m+p−1) ≤ 0.15 with p=8.</div>
-    <div class="solution" hidden>7/(m+7) ≤ 0.15 → m ≥ 7/0.15 − 7 ≈ <strong>40</strong>. Use 1F1B to keep activation memory in check.</div>
+    <div class="hint" hidden>Solve \((p-1)/(m+p-1)\le0.15\) with \(p=8\).</div>
+    <div class="solution" hidden>\(7/(m+7)\le0.15\Rightarrow m\ge7/0.15-7\approx\) <strong>40</strong>. Use 1F1B to keep activation memory in check.</div>
   </div>
 
   <div class="exercise">
@@ -175,7 +175,7 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>Gaming the signal.</div>
-    <div class="solution" hidden>Reward <strong>hacking</strong>. Mitigate by curating preference data, lowering β (more KL pull), or filtering offending patterns.</div>
+    <div class="solution" hidden>Reward <strong>hacking</strong>. Mitigate by curating preference data, lowering \(\beta\) (more KL pull), or filtering offending patterns.</div>
   </div>
 </section>
 
@@ -231,15 +231,15 @@
   <div class="exercise">
     <p><span class="ex-num">D1.</span>
       <span class="topic-badge">L7</span>
-      Your 70B model has 80 layers, 8 KV heads (GQA), d_head=128. KV cache per request at 8k context in FP16 = <input data-answer="2.1|2.15|2.0" data-tolerance="0.2"> GB. (Hint: 2·L·H_kv·d_h·N·bytes.)</p>
+      Your 70B model has 80 layers, 8 KV heads (GQA), \(d_{\mathrm{head}}=128\). KV cache per request at 8k context in FP16 = <input data-answer="2.1|2.15|2.0" data-tolerance="0.2"> GB. (Hint: \(2LH_{\mathrm{kv}}d_hN\cdot\mathrm{bytes}\).)</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>2 · 80 · 8 · 128 · 8192 · 2 bytes.</div>
-    <div class="solution" hidden>2·80·8·128·8192·2 = 2,147,483,648 bytes = <strong>2.0 GiB</strong> per request. With batch 16 → 32 GB, half of an H100.</div>
+    <div class="hint" hidden>\(2\cdot80\cdot8\cdot128\cdot8192\cdot2\) bytes.</div>
+    <div class="solution" hidden>\(2\cdot80\cdot8\cdot128\cdot8192\cdot2=2{,}147{,}483{,}648\) bytes = <strong>2.0 GiB</strong> per request. With batch 16 → 32 GB, half of an H100.</div>
   </div>
 
   <div class="exercise">
@@ -295,7 +295,7 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>Draft + verify.</div>
-    <div class="solution" hidden><strong>Speculative</strong> decoding. Speedup ≈ accepted_per_step.</div>
+    <div class="solution" hidden><strong>Speculative</strong> decoding. Speedup \(\approx\operatorname{accepted\ per\ step}\).</div>
   </div>
 
   <div class="exercise">

@@ -41,14 +41,14 @@
   <ul>
     <li><strong>ZeRO-1:</strong> shard <em>optimizer states</em> (Adam moments) → ~4× memory saving for Adam.</li>
     <li><strong>ZeRO-2:</strong> additionally shard <em>gradients</em> → ~8× saving.</li>
-    <li><strong>ZeRO-3:</strong> additionally shard <em>parameters</em>; AllGather them just-in-time per layer, then drop → memory ≈ 1/N × full. Communication: ReduceScatter for grads + AllGather for params per step.</li>
+    <li><strong>ZeRO-3:</strong> additionally shard <em>parameters</em>; AllGather them just-in-time per layer, then drop → memory \(\approx1/N\times\) full. Communication: ReduceScatter for grads + AllGather for params per step.</li>
   </ul>
   <p>FSDP (PyTorch) is essentially ZeRO-3.</p>
 
   <h3>Pipeline parallelism (PP)</h3>
   <p>Split the model <em>layer-wise</em> across p stages, one per GPU. A micro-batch flows through stage 0 → 1 → … → p−1. Backward flows in reverse.</p>
   <p>Problem: naive pipelining leaves GPUs idle (the "bubble"). Split each batch into m <strong>micro-batches</strong> to overlap:</p>
-  <span class="formula">bubble_fraction = (p − 1) / (m + p − 1)</span>
+  <span class="formula">\[\operatorname{bubble\ fraction}=\frac{p-1}{m+p-1}\]</span>
   <ul>
     <li><strong>GPipe:</strong> all forwards then all backwards. Simple, peak activation memory.</li>
     <li><strong>1F1B (PipeDream):</strong> interleave 1-forward-1-backward, smaller activation memory.</li>
@@ -117,15 +117,15 @@
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q3.</span> Pipeline with p = 4 stages and m = 8 micro-batches. Bubble fraction = (p−1)/(m+p−1) = <input data-answer="0.273|3/11" data-tolerance="0.01"> (decimal).</p>
+    <p><span class="ex-num">Q3.</span> Pipeline with \(p=4\) stages and \(m=8\) micro-batches. Bubble fraction \(=(p-1)/(m+p-1)=\) <input data-answer="0.273|3/11" data-tolerance="0.01"> (decimal).</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>3 / (8 + 3) = 3/11.</div>
-    <div class="solution" hidden>3/11 ≈ <strong>0.273</strong> → ~27% of time wasted in the bubble. Bigger m shrinks it.</div>
+    <div class="hint" hidden>\(3/(8+3)=3/11\).</div>
+    <div class="solution" hidden>\(3/11\approx\) <strong>0.273</strong> → ~27% of time wasted in the bubble. Bigger \(m\) shrinks it.</div>
   </div>
 
   <div class="exercise">
@@ -161,7 +161,7 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>Multiply.</div>
-    <div class="solution" hidden>8 × 8 × 16 = <strong>1024</strong> GPUs.</div>
+    <div class="solution" hidden>\(8\times8\times16=\) <strong>1024</strong> GPUs.</div>
   </div>
 
   <div class="exercise">
@@ -173,7 +173,7 @@
     </div>
     <div class="feedback"></div>
     <div class="hint" hidden>By starting backward earlier, fewer micro-batch activations are alive at once.</div>
-    <div class="solution" hidden><strong>Activation</strong> memory. Peak ≈ p (the depth) instead of m (the number of micro-batches).</div>
+    <div class="solution" hidden><strong>Activation</strong> memory. Peak \(\approx p\) (the depth) instead of \(m\) (the number of micro-batches).</div>
   </div>
 
   <div class="exercise">

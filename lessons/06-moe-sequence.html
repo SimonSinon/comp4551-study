@@ -17,7 +17,7 @@
   <span class="lesson-tag">Lesson 6 · HIGH priority</span>
   <h1>Sequence &amp; MoE Parallelism</h1>
   <div class="prereqs"><strong>Prerequisites</strong>
-    <ul><li>Lesson 5 (TP, DP).</li><li>Lesson 3 (attention shape O(N²)).</li></ul>
+    <ul><li>Lesson 5 (TP, DP).</li><li>Lesson 3 (attention shape \(O(N^2)\)).</li></ul>
   </div>
   <div class="objectives"><strong>By the end you can:</strong>
     <ul>
@@ -38,13 +38,11 @@
 
   <h3>Ring Attention (for very long contexts)</h3>
   <p>For sequences too long for a single GPU even after SP, split tokens across GPUs in a ring. Each GPU holds its chunk of Q, K, V; it then rotates its K, V chunk around the ring, computing partial attention against each visiting chunk and combining results with online softmax.</p>
-  <p>Communication overlaps with computation; total data sent ≈ KV size × (ring length − 1). Used by frameworks training million-token contexts.</p>
+  <p>Communication overlaps with computation; total data sent \(\approx\) KV size \(\times\) (ring length \(-1\)). Used by frameworks training million-token contexts.</p>
 
   <h3>Mixture of Experts (MoE) — sparse activation</h3>
   <p>Replace each dense FFN with E experts (each its own FFN) plus a tiny <strong>gating network</strong> that, per token, picks the <strong>top-k</strong> experts (typically k=1 or 2). Only the chosen experts compute → params grow but FLOPs per token stay small.</p>
-  <span class="formula">gate_logits = W_gate · x         (shape: E)
-top-k indices &amp; weights = topk(softmax(gate_logits), k)
-y = Σ_{i∈top-k} weight_i · Expert_i(x)</span>
+  <span class="formula">\[\begin{aligned}\operatorname{gate\ logits}&=W_{\mathrm{gate}}x\quad\text{(shape: }E\text{)},\\\operatorname{top\text{-}k\ indices\ and\ weights}&=\operatorname{topk}(\operatorname{softmax}(\operatorname{gate\ logits}),k),\\y&=\sum_{i\in\operatorname{top\text{-}k}}\operatorname{weight}_i\operatorname{Expert}_i(x)\end{aligned}\]</span>
   <p>Example: Mixtral 8×7B has 8 experts, k=2 → 13B active params per token but ~47B total.</p>
 
   <h3>Capacity factor &amp; load-balancing loss</h3>

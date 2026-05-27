@@ -36,7 +36,7 @@
   <h2>1. Concepts</h2>
 
   <h3>What is a model?</h3>
-  <p>A model is a function <code>f(x; θ)</code> that maps an input <em>x</em> (features) to an output <em>ŷ</em> (prediction), parameterised by weights <em>θ</em>. "Training" = automatically choosing θ so that ŷ is close to the true label <em>y</em> on training data.</p>
+  <p>A model is a function \(f(x;\theta)\) that maps an input <em>x</em> (features) to an output \(\hat{y}\) (prediction), parameterised by weights \(\theta\). "Training" = automatically choosing \(\theta\) so that \(\hat{y}\) is close to the true label <em>y</em> on training data.</p>
 
   <h3>Supervised vs unsupervised</h3>
   <ul>
@@ -48,13 +48,13 @@
   <h3>Loss functions</h3>
   <p>A loss measures how wrong a prediction is. Lower = better.</p>
   <p><strong>Mean Squared Error (regression):</strong></p>
-  <span class="formula">L_MSE = (1/N) · Σᵢ (yᵢ − ŷᵢ)²</span>
+  <span class="formula">\[L_{\mathrm{MSE}}=\frac{1}{N}\sum_i \left(y_i-\hat{y}_i\right)^2\]</span>
   <p><strong>Cross-entropy (classification with C classes):</strong></p>
-  <span class="formula">L_CE = − Σ_c y_c · log(ŷ_c)</span>
-  <p>For one-hot labels, only the term for the true class survives: <code>L = −log(ŷ_true)</code>. If the model is confident and right (ŷ ≈ 1), loss → 0; if confident and wrong, loss → ∞.</p>
+  <span class="formula">\[L_{\mathrm{CE}}=-\sum_c y_c\log\left(\hat{y}_c\right)\]</span>
+  <p>For one-hot labels, only the term for the true class survives: \(L=-\log(\hat{y}_{\mathrm{true}})\). If the model is confident and right (\(\hat{y}\approx1\)), loss \(\to0\); if confident and wrong, loss \(\to\infty\).</p>
 
   <h3>Train / validation / test split</h3>
-  <p>Typically ~80 / 10 / 10. Train fits θ; validation picks hyperparameters; test gives the final unbiased estimate. <strong>Never tune on the test set.</strong></p>
+  <p>Typically ~80 / 10 / 10. Train fits \(\theta\); validation picks hyperparameters; test gives the final unbiased estimate. <strong>Never tune on the test set.</strong></p>
 
   <h3>Bias–variance &amp; over/underfitting</h3>
   <ul>
@@ -62,7 +62,7 @@
     <li><strong>Overfit (high variance):</strong> model memorises noise → great on train, bad on test.</li>
     <li><strong>Fixes:</strong> more data, regularisation (L2/dropout), simpler model, early stopping.</li>
   </ul>
-  <div class="example"><strong>Real-world:</strong> A 70B-parameter LLM trained on only 1M tokens would massively overfit. Chinchilla scaling laws (W4) say tokens should be ≈ 20× params to balance compute vs overfitting.</div>
+  <div class="example"><strong>Real-world:</strong> A 70B-parameter LLM trained on only 1M tokens would massively overfit. Chinchilla scaling laws (W4) say tokens should be \(\approx20\times\) params to balance compute vs overfitting.</div>
 </section>
 
 <section class="card">
@@ -95,27 +95,27 @@
   </div>
 
   <div class="exercise" data-id="2">
-    <p><span class="ex-num">Q2.</span> The true labels are <code>y = [3, 5]</code> and predictions are <code>ŷ = [2, 6]</code>. MSE = <input data-answer="1" data-tolerance="0.01"></p>
+    <p><span class="ex-num">Q2.</span> The true labels are \(y=[3,5]\) and predictions are \(\hat{y}=[2,6]\). MSE = <input data-answer="1" data-tolerance="0.01"></p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>Compute (y−ŷ)² for each example, then average.</div>
-    <div class="solution" hidden>(3−2)² + (5−6)² = 1 + 1 = 2. Average over N=2 → <strong>1</strong>.</div>
+    <div class="hint" hidden>Compute \((y-\hat{y})^2\) for each example, then average.</div>
+    <div class="solution" hidden>\((3-2)^2+(5-6)^2=1+1=2\). Average over \(N=2\) → <strong>1</strong>.</div>
   </div>
 
   <div class="exercise" data-id="3">
-    <p><span class="ex-num">Q3.</span> A classifier predicts probability <code>ŷ = 0.1</code> for the true class. Cross-entropy = −log(0.1) ≈ <input data-answer="2.303" data-tolerance="0.05"> (use natural log).</p>
+    <p><span class="ex-num">Q3.</span> A classifier predicts probability \(\hat{y}=0.1\) for the true class. Cross-entropy = \(-\log(0.1)\approx\) <input data-answer="2.303" data-tolerance="0.05"> (use natural log).</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>ln(10) ≈ 2.303, and −ln(0.1) = ln(10).</div>
-    <div class="solution" hidden>−ln(0.1) = ln(10) ≈ <strong>2.303</strong>. The model is very wrong (assigned low prob to truth), so loss is large.</div>
+    <div class="hint" hidden>\(\ln(10)\approx2.303\), and \(-\ln(0.1)=\ln(10)\).</div>
+    <div class="solution" hidden>\(-\ln(0.1)=\ln(10)\approx\) <strong>2.303</strong>. The model is very wrong (assigned low prob to truth), so loss is large.</div>
   </div>
 
   <div class="exercise" data-id="4">
@@ -170,7 +170,7 @@
 <section class="card summary-box">
   <h2>Key Takeaways</h2>
   <ul>
-    <li>Training = minimise a loss over θ. Loss tells you "how wrong".</li>
+    <li>Training = minimise a loss over \(\theta\). Loss tells you "how wrong".</li>
     <li>MSE for regression, cross-entropy for classification.</li>
     <li>Always split data: train / val / test. Test set is sacred.</li>
     <li>Overfit = big train–val gap; underfit = both bad.</li>

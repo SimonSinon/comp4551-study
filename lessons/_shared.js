@@ -3,6 +3,29 @@
 // data-tolerance for numeric values (absolute), optional
 // Buttons: Check / Hint / Show Solution
 
+window.MathJax = window.MathJax || {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]']],
+    processEscapes: true,
+    packages: {'[+]': ['ams']}
+  },
+  svg: {fontCache: 'global'},
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore'
+  }
+};
+
+(function loadMathJax() {
+  if (document.querySelector('script[data-mathjax-loader]')) return;
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+  script.async = true;
+  script.dataset.mathjaxLoader = 'true';
+  document.head.appendChild(script);
+})();
+
 function normalize(s) {
   return String(s).trim().toLowerCase().replace(/\s+/g, ' ');
 }
@@ -66,7 +89,10 @@ function checkExercise(btn) {
 function showHint(btn) {
   const ex = btn.closest('.exercise');
   const hint = ex.querySelector('.hint');
-  if (hint) hint.hidden = !hint.hidden;
+  if (hint) {
+    hint.hidden = !hint.hidden;
+    if (!hint.hidden && window.MathJax?.typesetPromise) MathJax.typesetPromise([hint]);
+  }
 }
 
 function showSolution(btn) {
@@ -78,5 +104,8 @@ function showSolution(btn) {
     return;
   }
   const sol = ex.querySelector('.solution');
-  if (sol) sol.hidden = !sol.hidden;
+  if (sol) {
+    sol.hidden = !sol.hidden;
+    if (!sol.hidden && window.MathJax?.typesetPromise) MathJax.typesetPromise([sol]);
+  }
 }

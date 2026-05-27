@@ -94,6 +94,22 @@
 
   footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px; }
 </style>
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]']],
+    processEscapes: true,
+    packages: {'[+]': ['ams']}
+  },
+  svg: {fontCache: 'global'},
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore'
+  }
+};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body>
 <div class="container">
@@ -328,7 +344,7 @@
         <td>SGD &amp; Optimisers (L3)</td>
         <td>
           Gradient descent intuition (downhill on loss surface). Difference between full-batch GD, mini-batch SGD, and online SGD — why mini-batch is used in practice.
-          Write the update rules for: SGD, SGD+momentum, Adam/AdamW. By hand, do <strong>one step</strong> of SGD on <em>f(w) = (w−3)²</em> from w=0, lr=0.1.
+          Write the update rules for: SGD, SGD+momentum, Adam/AdamW. By hand, do <strong>one step</strong> of SGD on \(f(w)=(w-3)^2\) from \(w=0\), lr=0.1.
         </td>
       </tr>
 
@@ -338,7 +354,7 @@
         <td>Backprop &amp; Autodiff (L4)</td>
         <td>
           Computation graph idea (nodes = ops, edges = tensors). Forward-mode vs reverse-mode autodiff — why reverse-mode is used for deep nets (one backward pass gives all gradients).
-          Manually backprop a 2-layer MLP: <em>y = W₂ · ReLU(W₁x)</em> with MSE loss. Then read about <strong>gradient checkpointing</strong> (trade compute for memory) — this reappears in parallelism.
+          Manually backprop a 2-layer MLP: \(y=W_2\operatorname{ReLU}(W_1x)\) with MSE loss. Then read about <strong>gradient checkpointing</strong> (trade compute for memory) — this reappears in parallelism.
         </td>
       </tr>
       <tr>
@@ -346,7 +362,7 @@
         <td>Transformer Architecture (L5)</td>
         <td>
           THE most important lecture — every later topic builds on it. Draw the decoder-only block from scratch: <em>Input → LN → MHA → +residual → LN → FFN → +residual</em>.
-          For MHA, write the Q/K/V shapes: input <em>[B, N, d]</em>, heads <em>h</em>, head dim <em>d_h = d/h</em>. Softmax(QKᵀ/√d_h)V. Tokenisation (BPE) at a high level; RoPE positional encoding intuition. Watch a short Karpathy video if confused.
+          For MHA, write the Q/K/V shapes: input \([B,N,d]\), heads \(h\), head dim \(d_h=d/h\). \(\operatorname{softmax}(QK^T/\sqrt{d_h})V\). Tokenisation (BPE) at a high level; RoPE positional encoding intuition. Watch a short Karpathy video if confused.
         </td>
       </tr>
 
@@ -355,7 +371,7 @@
         <td class="time">A · 1 hr</td>
         <td>Pretraining &amp; GPU Perf (L6–7)</td>
         <td>
-          CLM objective (predict next token); dataset pipeline at a high level; Chinchilla scaling law (<em>tokens ≈ 20 × params</em>).
+          CLM objective (predict next token); dataset pipeline at a high level; Chinchilla scaling law (tokens \(\approx20\times\) params).
           GPU memory hierarchy: HBM (big, slow) vs SRAM (small, fast). Roofline model: compute-bound vs memory-bound; arithmetic intensity = FLOPs / bytes. <strong>Why this matters:</strong> decoding is memory-bound — that drives ALL inference optimisations.
         </td>
       </tr>
@@ -364,7 +380,7 @@
         <td>Collective Communication (L8)</td>
         <td>
           Why collectives exist: gradients/activations must move between GPUs. Learn 4 primitives with diagrams: <strong>Broadcast, AllReduce, AllGather, ReduceScatter</strong>.
-          Ring AllReduce cost ≈ <em>2(N−1)/N · M / BW</em>. NVLink &gt; PCIe &gt; InfiniBand (bandwidth order). Don't memorise numbers — understand <em>when</em> each collective is triggered.
+          Ring AllReduce cost \(\approx2(N-1)M/(N\cdot\mathrm{BW})\). NVLink &gt; PCIe &gt; InfiniBand (bandwidth order). Don't memorise numbers — understand <em>when</em> each collective is triggered.
         </td>
       </tr>
 
@@ -394,7 +410,7 @@
         <td>Generative Inference Basics + Algorithm Opts (L13–14)</td>
         <td>
           <strong>Prefill</strong> (compute-bound, parallel over tokens) vs <strong>decode</strong> (memory-bound, one token at a time).
-          KV-cache: derive size = <em>2 · n_layers · n_heads · d_head · seq_len · batch · bytes</em>. It dominates memory at long context.
+          KV-cache: derive size = \(2\cdot n_{\mathrm{layers}}\cdot n_{\mathrm{heads}}\cdot d_{\mathrm{head}}\cdot L\cdot B\cdot\operatorname{bytes}\). It dominates memory at long context.
           Sampling: greedy, top-k, top-p, temperature. FlashAttention: tile Q/K/V, online softmax → avoid materialising the N×N matrix. Speculative decoding: small draft model proposes, big model verifies.
         </td>
       </tr>
@@ -422,7 +438,7 @@
         <td class="time">B · 1 hr</td>
         <td>PEFT, RLHF, Evaluation (L20–22)</td>
         <td>
-          <strong>LoRA:</strong> freeze W, train low-rank <em>ΔW = BA</em> where <em>B ∈ ℝ<sup>d×r</sup>, A ∈ ℝ<sup>r×d</sup></em>, r ≪ d. Params drop from d² to 2dr. QLoRA = LoRA on a 4-bit quantised base model.
+          <strong>LoRA:</strong> freeze \(W\), train low-rank \(\Delta W=BA\) where \(B\in\mathbb{R}^{d\times r}\), \(A\in\mathbb{R}^{r\times d}\), \(r\ll d\). Params drop from \(d^2\) to \(2dr\). QLoRA = LoRA on a 4-bit quantised base model.
           <strong>RLHF:</strong> SFT → reward model → PPO. DPO = skip the RM, optimise directly on preference pairs. GRPO = group-relative variant used in DeepSeek.
           Benchmarks: MMLU, GSM8K, HumanEval (pass@k), MT-Bench, Chatbot Arena (Elo), LLM-as-judge — know what each measures and its weakness.
         </td>
@@ -441,7 +457,7 @@
         <td>Weak-spot patch + 1-page cheat sheet</td>
         <td>
           Re-derive ONLY your 3–5 weakest topics out loud. Then build a single A4 formula sheet:
-          <em>KV-cache size · AllReduce ring cost · ZeRO memory · pipeline bubble · LoRA param count · Chinchilla 20× ratio · roofline arithmetic intensity · attention softmax(QKᵀ/√d)V</em>.
+          <em>KV-cache size · AllReduce ring cost · ZeRO memory · pipeline bubble · LoRA param count · Chinchilla \(20\times\) ratio · roofline arithmetic intensity · attention \(\operatorname{softmax}(QK^T/\sqrt d)V\)</em>.
           Sleep early.
         </td>
       </tr>

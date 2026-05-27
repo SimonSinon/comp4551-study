@@ -34,7 +34,7 @@
 
   <h3>The agent loop</h3>
   <p>An agent is an LLM in a perception–action loop:</p>
-  <span class="formula">while not done:
+  <span class="formula code-formula">while not done:
     thought  = LLM(history)
     action   = parse_tool_call(thought)
     obs      = execute(action)        # tool / API / code
@@ -61,9 +61,9 @@ return final_answer</span>
   <p>Full fine-tuning of a 70B model needs ~280 GB of optimizer states alone. PEFT freezes the base and trains a tiny number of extra parameters → fits on a single GPU, switchable adapters per task.</p>
 
   <h3>LoRA: low-rank adaptation</h3>
-  <p>For a frozen weight <code>W ∈ ℝ^{d×k}</code>, learn a low-rank update <code>ΔW = B A</code> where <code>B ∈ ℝ^{d×r}</code>, <code>A ∈ ℝ^{r×k}</code>, with rank <code>r ≪ min(d,k)</code> (e.g., r=8 or 16).</p>
-  <span class="formula">y = W x + (α/r) · B A x</span>
-  <p>Trainable params per matrix: <code>r·(d + k)</code> instead of <code>d·k</code>. For d=k=4096, r=16 → 131k params vs 16.8M (~128× smaller). A is init random Gaussian, B init zero (so ΔW starts at 0). After training, ΔW can be <strong>merged</strong> into W for zero inference overhead.</p>
+  <p>For a frozen weight \(W\in\mathbb{R}^{d\times k}\), learn a low-rank update \(\Delta W=BA\) where \(B\in\mathbb{R}^{d\times r}\), \(A\in\mathbb{R}^{r\times k}\), with rank \(r\ll\min(d,k)\) (e.g., r=8 or 16).</p>
+  <span class="formula">\[y=Wx+\frac{\alpha}{r}BAx\]</span>
+  <p>Trainable params per matrix: \(r(d+k)\) instead of \(dk\). For \(d=k=4096\), \(r=16\) → 131k params vs 16.8M (~128× smaller). \(A\) is init random Gaussian, \(B\) init zero (so \(\Delta W\) starts at 0). After training, \(\Delta W\) can be <strong>merged</strong> into \(W\) for zero inference overhead.</p>
 
   <h3>QLoRA</h3>
   <p>Quantise the frozen base to NF4 (4-bit), keep LoRA adapters in BF16. Enables fine-tuning 65B models on a single 48 GB GPU. Tricks: double quantisation, paged optimisers.</p>
@@ -85,7 +85,7 @@ return final_answer</span>
     <p>Either the model emits a "final answer" tool call, or it produces text without a tool call, or a maximum-step budget is reached. The loop is controlled by the orchestration code, not the model itself.</p>
   </details>
   <details class="socratic"><summary>Why is B (in LoRA's BA) initialised to zero?</summary>
-    <p>So ΔW = BA = 0 at the start — the fine-tuned model begins identical to the frozen base, ensuring no destructive shift. Training then learns the perturbation.</p>
+    <p>So \(\Delta W=BA=0\) at the start — the fine-tuned model begins identical to the frozen base, ensuring no destructive shift. Training then learns the perturbation.</p>
   </details>
   <details class="socratic"><summary>Why does QLoRA give nearly the same quality as LoRA despite 4-bit weights?</summary>
     <p>The frozen base weights are only read during forward/backward; gradient signal still flows into BF16 LoRA adapters. The 4-bit quantisation noise is amortised across all weights and turns out to be tolerable for instruction tuning.</p>
@@ -123,19 +123,19 @@ return final_answer</span>
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q3.</span> LoRA factorises the update as ΔW = B A. For W of shape 4096 × 4096 with rank r = 8, total LoRA trainable params = r·(d+k) = <input data-answer="65536"></p>
+    <p><span class="ex-num">Q3.</span> LoRA factorises the update as \(\Delta W=BA\). For \(W\) of shape \(4096\times4096\) with rank \(r=8\), total LoRA trainable params \(=r(d+k)=\) <input data-answer="65536"></p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
       <button class="secondary" onclick="showSolution(this)">Show solution</button>
     </div>
     <div class="feedback"></div>
-    <div class="hint" hidden>8 × (4096 + 4096).</div>
-    <div class="solution" hidden>8 × 8192 = <strong>65,536</strong> params vs 4096² = 16,777,216 full. ~256× smaller.</div>
+    <div class="hint" hidden>\(8\times(4096+4096)\).</div>
+    <div class="solution" hidden>\(8\times8192=\) <strong>65,536</strong> params vs \(4096^2=16{,}777{,}216\) full. ~\(256\times\) smaller.</div>
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q4.</span> In LoRA, matrix B is initialised to <input data-answer="0|zero|zeros"> so that ΔW = 0 at the start.</p>
+    <p><span class="ex-num">Q4.</span> In LoRA, matrix \(B\) is initialised to <input data-answer="0|zero|zeros"> so that \(\Delta W=0\) at the start.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -159,7 +159,7 @@ return final_answer</span>
   </div>
 
   <div class="exercise">
-    <p><span class="ex-num">Q6.</span> After training, LoRA's ΔW can be added into W so inference cost is the same as the base model — this is called <input data-answer="merging|merge|weight merging">.</p>
+    <p><span class="ex-num">Q6.</span> After training, LoRA's \(\Delta W\) can be added into \(W\) so inference cost is the same as the base model — this is called <input data-answer="merging|merge|weight merging">.</p>
     <div class="buttons">
       <button onclick="checkExercise(this)">Check</button>
       <button class="secondary" onclick="showHint(this)">Hint</button>
@@ -200,9 +200,9 @@ return final_answer</span>
   <ul>
     <li>Agent = LLM + tools + memory in a thought/action/observation loop.</li>
     <li>Function calling = structured tool invocation via JSON schemas.</li>
-    <li>LoRA: ΔW = BA, rank r ≪ d, trainable params ≈ r(d+k); B init = 0.</li>
+    <li>LoRA: \(\Delta W=BA\), rank \(r\ll d\), trainable params \(\approx r(d+k)\); \(B\) init = 0.</li>
     <li>QLoRA: 4-bit base + BF16 LoRA → 65B fine-tuning on one GPU.</li>
-    <li>Merge LoRA into W for zero-overhead inference.</li>
+    <li>Merge LoRA into \(W\) for zero-overhead inference.</li>
   </ul>
 </section>
 

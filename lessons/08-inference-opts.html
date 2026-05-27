@@ -32,7 +32,7 @@
 <section class="card">
   <h2>1. Concepts</h2>
 
-  <h3>FlashAttention — fuse &amp; tile the O(N²) attention</h3>
+  <h3>FlashAttention — fuse &amp; tile the \(O(N^2)\) attention</h3>
   <p>Naive attention materialises the N×N matrix in HBM, then softmax-reads-writes it again, then multiplies by V. That's HBM-thrashing for no good reason.</p>
   <p>FlashAttention <strong>tiles</strong> Q, K, V into SRAM-sized blocks and computes attention block-by-block, never writing the full attention matrix to HBM. It uses <strong>online softmax</strong> to combine partial maxes/sums across tiles correctly.</p>
   <p>Result: same math, ~2–4× faster, drastically less memory, enabling long contexts.</p>
@@ -47,7 +47,7 @@
 
   <h3>Speculative decoding</h3>
   <p>Use a small fast <em>draft</em> model to propose k future tokens, then verify them with the big <em>target</em> model in a single batched forward pass. Accepted tokens commit; the first rejected one is replaced by the target's sample; the rest are discarded.</p>
-  <p>Speedup ≈ accepted_per_step / 1 forward of target. Works because verification is parallel (1 step instead of k). Variants: Medusa (multi-head draft inside target), EAGLE, lookahead decoding.</p>
+  <p>Speedup \(\approx\operatorname{accepted\ per\ step}/1\) forward of target. Works because verification is parallel (1 step instead of \(k\)). Variants: Medusa (multi-head draft inside target), EAGLE, lookahead decoding.</p>
 
   <h3>Quantisation</h3>
   <p>Reduce numerical precision of weights (and sometimes activations / KV) to shrink memory + speed up HBM loads.</p>

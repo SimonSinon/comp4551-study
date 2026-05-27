@@ -67,6 +67,14 @@ section.card h3 { margin: 18px 0 6px; font-size: 16px; color: var(--bg); }
   font-family: "Cambria Math", Georgia, serif; font-size: 15px;
   margin: 8px 0; overflow-x: auto;
 }
+.formula mjx-container[jax="SVG"][display="true"] {
+  margin: 0;
+}
+.formula.code-formula {
+  white-space: pre;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
 code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
 
 .example {
